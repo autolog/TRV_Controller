@@ -9,5 +9,5 @@ Once available, it is **strongly recommended** to read the [Wiki Documentation][
 **The latest release will be available here: [Latest TRV Controller Releases][3]**
 
 [1]: https://www.indigodomo.com
-[4]: https://github.com/autolog/TRV_Controller/wiki
-[5]: https://github.com/autolog/TRV_Controller/releases
+[2]: https://github.com/autolog/TRV_Controller/wiki
+[3]: https://github.com/autolog/TRV_Controller/releases
