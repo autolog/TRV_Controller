@@ -6,7 +6,7 @@ The plugin is currently in private beta testing. Documentation is still in the p
 
 Once available, it is **strongly recommended** to read the [Wiki Documentation][2] to familiarise yourself with how this plugin works when comapared to the Autolog Stella-Z Controller plugin.
 
-**In due course, the latest release will be available here: [Latest TRV Controller Releases][3]**
+**Hopefully this month (February 2019), the latest release will be available here: [Latest TRV Controller Releases][3]**
 
 [1]: https://www.indigodomo.com
 [2]: https://github.com/autolog/TRV_Controller/wiki
