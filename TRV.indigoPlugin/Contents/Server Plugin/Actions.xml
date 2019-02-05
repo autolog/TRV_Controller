@@ -1,0 +1,249 @@
+<?xml version="1.0"?>
+
+<Actions>
+    <Action id="processAdvance" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Advance</Name>
+        <CallbackMethod>processAdvance</CallbackMethod>
+    </Action>
+    <Action id="processAdvanceOn" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Advance To ON</Name>
+        <CallbackMethod>processAdvanceOn</CallbackMethod>
+    </Action>
+    <Action id="processAdvanceOff" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Advance To OFF</Name>
+        <CallbackMethod>processAdvanceOff</CallbackMethod>
+    </Action>
+    <Action id="processCancelAdvance" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Advance Cancel</Name>
+        <CallbackMethod>processCancelAdvance</CallbackMethod>
+    </Action>
+    <Action id="processAdvanceToggle" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Advance Toggle ON/OFF</Name>
+        <CallbackMethod>processAdvanceToggle</CallbackMethod>
+    </Action>
+    <Action id="processAdvanceOnToggle" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Advance Toggle ON</Name>
+        <CallbackMethod>processAdvanceOnToggle</CallbackMethod>
+    </Action>
+    <Action id="processAdvanceOffToggle" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Advance Toggle OFF</Name>
+        <CallbackMethod>processAdvanceOffToggle</CallbackMethod>
+    </Action>
+    <Action id="processBoost" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Boost</Name>
+        <CallbackMethod>processBoost</CallbackMethod>
+        <ConfigUI>
+
+            <Field id="boostMode" type="menu" defaultValue="0" alwaysUseInDialogHeightCalc="true">
+                <Label>Boost Mode:</Label>
+                <List>
+                    <Option value="0">- Select Delta T or Setpoint -</Option>
+                    <Option value="1">Delta T</Option>
+                    <Option value="2">Setpoint</Option>
+                </List>
+            </Field>
+            <Field id="boostDeltaT" type="textfield" defaultValue="2.0"  alwaysUseInDialogHeightCalc="true" visibleBindingId="boostMode" visibleBindingValue="1">
+                <Label>Delta T:</Label>
+            </Field>
+            <Field id="boostDeltaT-Help" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true" visibleBindingId="boostMode" visibleBindingValue="1">
+                <Label>^ Specify the number of degrees above the ambient temperature to boost the temperature to.</Label>
+            </Field>
+            <Field id="boostSetpoint" type="textfield" defaultValue="21.0"  alwaysUseInDialogHeightCalc="true" visibleBindingId="boostMode" visibleBindingValue="2">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="boostSetpoint-Help" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true" visibleBindingId="boostMode" visibleBindingValue="2">
+                <Label>^ Specify the target heat setpoint temperature.</Label>
+            </Field>
+
+            <Field id="boostMinutes" type="textfield" defaultValue="20">
+                <Label>Boost Minutes:</Label>
+            </Field>
+            <Field id="boostMinutes-Help" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify the number of minutes to apply the boost for.</Label>
+            </Field>
+        </ConfigUI>
+    </Action>
+    <Action id="processCancelBoost" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Boost Cancel</Name>
+        <CallbackMethod>processCancelBoost</CallbackMethod>
+    </Action>
+    <Action id="processBoostToggle" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Boost Toggle ON/OFF</Name>
+        <CallbackMethod>processBoostToggle</CallbackMethod>
+        <ConfigUI>
+
+            <Field id="toggleBoostMode" type="menu" defaultValue="0" alwaysUseInDialogHeightCalc="true">
+                <Label>Boost Mode:</Label>
+                <List>
+                    <Option value="0">- Select Delta T or Setpoint -</Option>
+                    <Option value="1">Delta T</Option>
+                    <Option value="2">Setpoint</Option>
+                </List>
+            </Field>
+            <Field id="toggleBoostDeltaT" type="textfield" defaultValue="2.0"  alwaysUseInDialogHeightCalc="true" visibleBindingId="toggleBoostMode" visibleBindingValue="1">
+                <Label>Delta T:</Label>
+            </Field>
+            <Field id="toggleBoostDeltaT-Help" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true" visibleBindingId="toggleBoostMode" visibleBindingValue="1">
+                <Label>^ Specify the number of degrees above the ambient temperature to boost the temperature to.</Label>
+            </Field>
+            <Field id="toggleBoostSetpoint" type="textfield" defaultValue="21.0"  alwaysUseInDialogHeightCalc="true" visibleBindingId="toggleBoostMode" visibleBindingValue="2">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="toggleBoostSetpoint-Help" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true" visibleBindingId="toggleBoostMode" visibleBindingValue="2">
+                <Label>^ Specify the target heat setpoint temperature.</Label>
+            </Field>
+
+            <Field id="toggleBoostMinutes" type="textfield" defaultValue="20">
+                <Label>Boost Minutes:</Label>
+            </Field>
+            <Field id="toggleBoostMinutes-Help" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify the number of minutes to apply the boost for.</Label>
+            </Field>
+        </ConfigUI>
+    </Action>
+
+    <Action id="processExtend" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Extend</Name>
+        <CallbackMethod>processExtend</CallbackMethod>
+        <ConfigUI>
+            <Field id="extendIncrementMinutes" type="textfield" defaultValue="15">
+                <Label>Increment Minutes:</Label>
+            </Field>
+            <Field id="extendIncrementMinutes-Help" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify the number of extend increment minutes.</Label>
+            </Field>
+            <Field id="extendMaximumMinutes" type="textfield" defaultValue="15">
+                <Label>Maximum Minutes:</Label>
+            </Field>
+            <Field id="extendMaximumtMinutes-Help" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify the maximum number of minutes that the schedule can be extended by (before cycling back to off).</Label>
+            </Field>
+        </ConfigUI>
+    </Action>
+    <Action id="processCancelExtend" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Extend Cancel</Name>
+        <CallbackMethod>processCancelExtend</CallbackMethod>
+    </Action>
+
+    <Action id="processResetScheduleToDeviceDefaults" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Reset Schedule To Device Defaults</Name>
+        <CallbackMethod>processResetScheduleToDeviceDefaults</CallbackMethod>
+    </Action>
+
+    <Action id="processShowAllSchedules" uiPath="DeviceActions">
+        <Name>Show All Schedules</Name>
+        <CallbackMethod>processShowAllSchedules</CallbackMethod>
+    </Action>
+    <Action id="processShowSchedule" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Show Schedule</Name>
+        <CallbackMethod>processShowSchedule</CallbackMethod>
+    </Action>
+    <Action id="processShowStatus" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Show Internal Status</Name>
+        <CallbackMethod>processShowStatus</CallbackMethod>
+    </Action>
+
+    <Action id="processTurnOn" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Thermostat Turn ON</Name>
+        <CallbackMethod>processTurnOn</CallbackMethod>
+    </Action>
+    <Action id="processTurnOff" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Thermostat Turn OFF</Name>
+        <CallbackMethod>processTurnOff</CallbackMethod>
+    </Action>
+    <Action id="processToggleTurnOnOff" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Thermostat Toggle ON/OFF</Name>
+        <CallbackMethod>processToggleTurnOnOff</CallbackMethod>
+    </Action>
+
+    <Action id="processUpdateAllCsvFiles" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Update All CSV Files</Name>
+        <CallbackMethod>processUpdateAllCsvFiles</CallbackMethod>
+    </Action>
+    <Action id="processUpdateAllCsvFilesViaPostgreSQL" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Update All CSV Files via PostgreSQL</Name>
+        <CallbackMethod>processUpdateAllCsvFilesViaPostgreSQL</CallbackMethod>
+        <ConfigUI>
+            <Field id="overrideDefaultRetentionHours" type="textfield" defaultValue="">
+                <Label>Override Default Retention Hours:</Label>
+            </Field>
+            <Field id="help-1" type="label" alignWithControl="true">
+                <Label>^ Leave blank to use default configured in device settings else specify number of hours as an integer e.g. 12</Label>
+            </Field>
+            <Field id="overrideCsvFilePrefix" type="textfield" defaultValue="">
+                <Label>Override Default CSV File Prefix:</Label>
+            </Field>
+            <Field id="help-2" type="label" alignWithControl="true">
+                <Label>^ Leave blank to use default configured in plugin config else specify prefix that will be used with this Action e.g. 'TRVC12' [no Quotes]</Label>
+            </Field>
+        </ConfigUI>
+    </Action>
+    <Action id="processUpdateSchedule" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Update Schedule</Name>
+        <CallbackMethod>processUpdateSchedule</CallbackMethod>
+        <ConfigUI>
+            <Field type="checkbox" id="schedule1Enabled" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Heating Schedule One:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule1TimeOn" type="textfield" defaultValue="07:00" visibleBindingId="schedule1Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule1TimeOff" type="textfield" defaultValue="10:00" visibleBindingId="schedule1Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule1SetpointHeat" type="textfield" defaultValue="" visibleBindingId="schedule1Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+
+            <Field type="checkbox" id="schedule2Enabled" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Heating Schedule Two:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule2TimeOn" type="textfield" defaultValue="" visibleBindingId="schedule2Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule2TimeOff" type="textfield" defaultValue="12:00" visibleBindingId="schedule2Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule2SetpointHeat" type="textfield" defaultValue="14:00" visibleBindingId="schedule2Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+
+            <Field type="checkbox" id="schedule3Enabled" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Heating Schedule Three:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule3TimeOn" type="textfield" defaultValue="17:00" visibleBindingId="schedule3Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule3TimeOff" type="textfield" defaultValue="20:00" visibleBindingId="schedule3Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule3SetpointHeat" type="textfield" defaultValue="" visibleBindingId="schedule3Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+
+            <Field type="checkbox" id="schedule4Enabled" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Heating Schedule Four:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule4TimeOn" type="textfield" defaultValue="22:00" visibleBindingId="schedule4Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule4TimeOff" type="textfield" defaultValue="22:30" visibleBindingId="schedule4Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule4SetpointHeat" type="textfield" defaultValue="22" visibleBindingId="schedule4Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="processUpdateScheduleResetToDefaultValues" type="button" tooltip="Click button to reset schedule to device defaults">
+                <Title>Reset dialogue to device default values</Title>
+                <CallbackMethod>actionConfigApplyDefaultScheduleValues</CallbackMethod>
+            </Field>
+
+        </ConfigUI>
+    </Action>
+
+
+</Actions>

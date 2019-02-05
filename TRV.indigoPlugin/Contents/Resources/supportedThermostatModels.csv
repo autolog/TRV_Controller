@@ -1,0 +1,9 @@
+# Model Name,supportsWakeup,supportsTemperatureReporting,supportsHvacOnOff,supportsValveControl,supportsManualSetpoint,SetpointHeatMinimum,SetpointHeatMaximum,
+Unknown TRV Model,0,0,0,0,0,10,28
+Thermostat (Spirit),0,1,1,1,1,8,28
+Radiator Thermostat (Living Connect-Z),1,0,0,0,0,4,28
+Radiator Thermostat (Living Connect LC-13),1,0,0,0,0,4,28
+Radiator Thermostat (POPP TRV),1,1,0,0,0,4,28
+Radiator Thermostat (Devolo 09356),1,1,0,0,0,4,28
+Thermostat (Comet Z),1,1,0,0,0,6,28
+Thermostat (Stella Z),1,1,0,0,0,6,28

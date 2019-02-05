@@ -1,0 +1,86 @@
+<?xml version="1.0"?>
+<PluginConfig>
+    <SupportURL>https://forums.indigodomo.com/viewforum.php?f=294</SupportURL>
+    <Field id="description" type="label">
+        <Label>This Plugin controls Z-Wave Thermostatic Radiator Valves (TRVs) in a multi-thermostat installation and enhances the standard devices with features such as schedule control. 😄</Label>
+    </Field>
+    <Field id="copyright" type="label">
+        <Label>Copyright © 2019 Autolog</Label>
+    </Field>
+    <Field id="separator-1" type="separator"/> 
+    <Field id="header-1" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+        <Label>HEAT SOURCE</Label>
+    </Field>
+
+    <Field type="checkbox" id="disableHeatSourceDeviceListFilter" default="false">
+        <Label>Disable Filter:</Label>
+        <Description>Remove filter from Heat Sources device list.</Description>
+    </Field>
+    <Field id="help-1" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+        <Label>^ Check to disable Heat Sources device filter in order to list devices that aren't "officially" supported by the plugin but may work!</Label>
+    </Field>
+
+    <Field id="trvVariableFolderName" type="textfield" defaultValue="TRV">
+        <Label>Variable Folder Name:</Label>
+    </Field>
+    <Field id="help-2" type="label" alignWithControl="true">
+        <Label> ^ Specify the name of the Indigo folder in which the plugin will list any pre-defined Heat Source variables when editing a TRV device. Leave empty if the folder is not required. The default variable folder is 'TRV' and if required and missing, will be created.</Label>
+    </Field>
+    <Field id="separator-2" type="separator"/>  
+    <Field id="header-2" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+        <Label>CSV</Label>
+    </Field>
+    <Field type="checkbox" id="csvStandardEnabled" default="false">
+        <Label>Enable Standard CSV:</Label>
+        <Description>Create and update CSV files on state change.</Description>
+    </Field>
+    <Field type="checkbox" id="csvPostgresqlEnabled" default="false">
+        <Label>Enable PostgreSQL CSV:</Label>
+        <Description>Create and update CSV files on demand using PostgreSQL.</Description>
+    </Field>
+    <Field id="postgresqlUser" type="textfield" defaultValue="" alwaysUseInDialogHeightCalc="true" visibleBindingId="csvPostgresqlEnabled" visibleBindingValue="true">
+        <Label>PostgreSQL User:</Label>
+    </Field>
+    <Field id="postgresqlPassword" type="textfield" defaultValue="" secure="true" alwaysUseInDialogHeightCalc="true" visibleBindingId="csvPostgresqlEnabled" visibleBindingValue="true">
+        <Label>PostgreSQL Password:</Label>
+    </Field>
+    <Field id="csvPath" type="textfield" defaultValue="">
+        <Label>Path to CSV folder:</Label>
+    </Field>
+    <Field id="help-3" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+        <Label>^ Specify the path to the folder which will contain any created CSV files specified for a TRV device.</Label>
+    </Field>
+    <Field id="csvPrefix" type="textfield" defaultValue="">
+        <Label>CSV File Prefix:</Label>
+    </Field>
+
+    <Field id="help-4" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+        <Label>^ Specify a prefix to be prepended to the CSV file name created from the TRV device specified 'Short Name' and state name</Label>
+    </Field>
+    <Field id="separator-4" type="separator"/>  
+    <Field id="header-3" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+        <Label>DEBUG LOGGING</Label>
+    </Field>
+
+    <Field type="checkbox" id="debugEnabled" default="false">
+        <Label>Debugging:</Label>
+        <Description>Enable debug logging.</Description>
+    </Field>
+
+     <Field id="help-5" type="label" alignWithControl="true" visibleBindingId="debugEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+        <Label>^ Select the debug logging to be performed by ticking the required logging option(s) below.</Label>
+    </Field>
+    <Field type="checkbox" id="debugGeneral" defaultValue="false"  visibleBindingId="debugEnabled" visibleBindingValue="true" tooltip="Enable logging of general debugging info." alwaysUseInDialogHeightCalc="true">
+        <Label>General:</Label>
+        <Description>Enable debug logging of General processing.</Description>
+    </Field>
+    <Field type="checkbox" id="debugTrvHandler" defaultValue="false"  visibleBindingId="debugEnabled" visibleBindingValue="true" tooltip="Enable logging of TRV Handler debugging info." alwaysUseInDialogHeightCalc="true">
+        <Label>TRV Handler:</Label>
+        <Description>Enable debug logging of TRV Handler processing.</Description>
+    </Field>
+    <Field type="checkbox" id="debugMethodTrace" default="false" visibleBindingId="debugEnabled" visibleBindingValue="true" tooltip="Enable method tracing.">
+        <Label>Method Trace:</Label>
+        <Description>Enable Method Trace debug logging.</Description>
+    </Field>
+
+</PluginConfig>

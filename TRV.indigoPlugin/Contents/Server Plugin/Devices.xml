@@ -1,0 +1,709 @@
+<?xml version="1.0"?>
+
+<Devices>
+    <Device type="thermostat" id="trvController">
+        <Name>TRV Controller</Name>
+        <ConfigUI>
+            <Field id="NumTemperatureInputs" type="textfield" defaultValue="2" hidden="true">
+                <Label>Supports temperatureSensorCount:</Label>
+                <Description>Show temperatureSensorCount in UI</Description>
+            </Field>
+            <Field id="SupportsHeatSetpoint" type="checkbox" defaultValue="true" hidden="true">
+                <Label>Supports heat setpoint:</Label>
+                <Description>Show heat setpoint controls in UI</Description>
+            </Field>
+            <Field id="SupportsCoolSetpoint" type="checkbox" defaultValue="false" hidden="true">
+                <Label>Supports cool setpoint:</Label>
+                <Description>Show cool setpoint controls in UI</Description>
+            </Field>
+            <Field id="SupportsHvacOperationMode" type="checkbox" defaultValue="true" hidden="true">
+                <Label>Supports thermostat modes:</Label>
+                <Description>Show thermostat mode controls (heat/cool/auto) in UI</Description>
+            </Field>
+            <Field id="supportsTemperatureReporting" type="checkbox" defaultValue="false" hidden="true">
+                <Label>Supports thermostat temperature reporting:</Label>
+                <Description>Supports thermostat  temperature reporting</Description>
+            </Field>
+            <Field id="supportsValveControl" type="checkbox" defaultValue="false" hidden="true">
+                <Label>Supports thermostat valve control:</Label>
+                <Description>Supports thermostat valve control</Description>
+            </Field>
+            <Field id="SupportsHvacFanMode" type="checkbox" defaultValue="false" hidden="true">
+                <Label>Supports fan modes:</Label>
+                <Description>Show fan mode controls (auto/always on) in UI</Description>
+            </Field>
+            <Field id="ShowCoolHeatEquipmentStateUI" type="checkbox" defaultValue="true" hidden="true">
+                <Label>Supports compressor/furnace feedback:</Label>
+                <Description>Show compressor/furnace states in UI</Description>
+            </Field>
+            <Field id="SupportsBatteryLevel" type="checkbox" defaultValue="true" hidden="true">
+                <Label>Supports Battery Level:</Label>
+                <Description>Show Battery Level in UI</Description>
+            </Field>
+
+            <Field id="header-1" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+                <Label>CONTROLLED TRV / HEAT SOURCE SELECTION</Label>
+            </Field>
+            <Field id="trvDevId" type="menu" alwaysUseInDialogHeightCalc="true">
+                <Label>TRV Thermostat Device:</Label>
+                <List class="self" method="trvControlledDevices"/>
+                <CallbackMethod>trvThermostatDeviceSelected</CallbackMethod>
+            </Field>
+            <Field id="help-1" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Select the TRV device to be controlled by this TRV Controller.</Label>
+            </Field>
+            <Field id="heatingId" type="menu" alwaysUseInDialogHeightCalc="true">
+                <Label>Heating Source Device for TRV:</Label>
+                <List class="self" method="heatSourceControllerDevices" dynamicReload="true"/>
+            </Field>
+            <Field id="help-2" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Select Heating Source device that will be requested to provide heat when the TRV is calling for heat.</Label>
+            </Field>
+            <Field id="help-3" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Note: If there is no Heating Source device listed then change the Plugin Config to disable heating source validation.</Label>
+            </Field>
+            <Field id="heatingVarId" type="menu" alwaysUseInDialogHeightCalc="true">
+                <Label>Heating Source Variable for TRV:</Label>
+                <List class="self" method="heatSourceControllerVariables" dynamicReload="true"/>
+            </Field>
+            <Field id="help-4" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Select the Heating Source variable that will be requested to provide heat when the TRV is calling for heat.</Label>
+            </Field>
+ 
+            <Field id="separator-1" type="separator" alwaysUseInDialogHeightCalc="true"/>
+            <Field id="header-2" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+                <Label>CSV</Label>
+            </Field>
+
+            <Field id="csvCreationMethod" type="menu" defaultValue="0" alwaysUseInDialogHeightCalc="true">
+                <Label>CSV Creation Method:</Label>
+                <List>
+                    <Option value="0">None</Option>
+                    <Option value="1">Standard [On State Change]</Option>
+                    <Option value="2">PostgreSQL [On demand]</Option>
+                </List>
+            </Field>
+
+            <Field id="csvStandardMode" type="menu" defaultValue="1" alwaysUseInDialogHeightCalc="true" visibleBindingId="csvCreationMethod" visibleBindingValue="1">
+                <Label>State Change Mode:</Label>
+                <List>
+                    <Option value="1">Individual State</Option>
+                    <Option value="2">All States</Option>
+                </List>
+            </Field>
+
+<!--             <Field id="updateCsvFile" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true">
+                <Label>Update CSV:</Label>
+                <Description>Check to update CSV file with state changes</Description>
+            </Field>
+            <Field id="updateAllCsvFiles" type="checkbox" defaultValue="false" visibleBindingId="updateCsvFile" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Update All CSV Files:</Label>
+                <Description>Check to update all CSV files</Description>
+            </Field>
+
+             <Field id="help-5" type="label" alignWithControl="true" visibleBindingId="updateCsvFile" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ This will update all the CSV states at the same time which can help to create a consistent graph display.</Label>
+            </Field>
+ -->            
+            <Field id="csvShortName" type="textfield" defaultValue="" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>Short Name:</Label>
+            </Field>
+            <Field id="help-6" type="label" alignWithControl="true" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify a short name (say, max 10 characters) to be used to uniquely identify this device within a CSV file name</Label>
+            </Field>
+            <Field id="csvRetentionPeriodHours" type="textfield" defaultValue="24" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>Retention Period (Hours):</Label>
+            </Field>
+
+            <Field id="supportsWakeup" type="textfield" defaultValue="true"  dynamicReload="true" alwaysUseInDialogHeightCalc="true" hidden="true">
+                <Label>Supports Wakeup:</Label>
+            </Field>
+            <Field id="separator-2" type="separator" dynamicReload="true" visibleBindingId="supportsWakeup" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true"/>
+            <Field id="header-3" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+                <Label>POLLING</Label>
+            </Field>
+            <Field id="pollingScheduleActive" type="textfield" defaultValue="5" dynamicReload="true" visibleBindingId="supportsWakeup" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
+                <Label>Polling Minutes [Schedule Active]:</Label>
+            </Field>
+            <Field id="pollingScheduleInactive" type="textfield" defaultValue="20" dynamicReload="true" visibleBindingId="supportsWakeup" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
+                <Label>Polling Minutes [Schedule Inactive]:</Label>
+            </Field>
+            <Field id="pollingSchedulesNotEnabled" type="textfield" defaultValue="30" dynamicReload="true" visibleBindingId="supportsWakeup" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
+                <Label>Polling Minutes [Schedules Not Enabled]:</Label>
+            </Field>
+
+            <Field id="separator-3" type="separator" alwaysUseInDialogHeightCalc="true"/>
+            <Field id="header-4" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+                <Label>TRV CONTROLLER DETAILS</Label>
+            </Field>
+
+            <Field id="hideTempBroadcast" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true">
+                <Label>Hide Temperature Broadcasts:</Label>
+                <Description>Hide broadcasts in Event Log</Description>
+            </Field>
+
+            <Field id="setpointHeatDeviceStartMethod" type="menu" defaultValue="1" alwaysUseInDialogHeightCalc="true">
+                <Label>Device Start Heat Setpoint Method:</Label>
+                <List>
+                    <Option value="1">Device Setpoint Minimum</Option>
+                    <Option value="2">Leave As Is</Option>
+                    <Option value="3">Specify Setpoint</Option>
+                </List>
+            </Field>
+            <Field id="help-10" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Select the preferred method to specify the Heat Setpoint when the device is started.</Label>
+            </Field>
+            <Field id="setpointHeatDeviceStartDefault" type="textfield" defaultValue="8.0" visibleBindingId="setpointHeatDeviceStartMethod" visibleBindingValue="3" alwaysUseInDialogHeightCalc="true">
+                <Label>Default Device Start Setpoint:</Label>
+            </Field>
+            <Field id="help-11" type="label" alignWithControl="true" visibleBindingId="setpointHeatDeviceStartMethod" visibleBindingValue="3" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify the temperature that will be used as the Heat Setpoint for the device when the device is started.</Label>
+            </Field>
+
+            <Field id="setpointHeatOnDefault" type="textfield" defaultValue="21" alwaysUseInDialogHeightCalc="true">
+                <Label>Default ON Temperature:</Label>
+            </Field>
+            <Field id="help-12" type="label" alignWithControl="true" enabledBindingId="supportsHvacOnOffHidden" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify the default ON temperature that will be used as the Heat Setpoint if the device is manually turned on.</Label>
+            </Field>
+
+<!--             <Field id="trvDeltaMax" type="textfield" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="false"  defaultValue="3" alwaysUseInDialogHeightCalc="true">
+                <Label>TRV Delta Max:</Label>
+            </Field>
+ -->
+            <Field id="help-13" type="label" alignWithControl="true" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify the maximum number of degrees to increase the TRV Heat Setpoint by in order to ensure the TRV is controlled by the Remote Thermostat and not turned off too early.</Label>
+            </Field>
+
+            <Field id="separator-4" type="separator" alwaysUseInDialogHeightCalc="true"/>
+            <Field id="header-5" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+                <Label>TRV DETAILS</Label>
+            </Field>
+
+            <Field id="supportsHvacOnOffHidden" type="checkbox" hidden="true" readonly="true" defaultValue="false" alwaysUseInDialogHeightCalc="true">
+                <Label>TRV Supports HVAC ON/OFF - HIDDEN:</Label>
+                <Description>Set by Plugin depending on TRV model</Description>
+            </Field>
+
+            <Field id="supportedModel" type="textfield" enabledBindingId="supportsHvacOnOffHidden" defaultValue="Unknown TRV Model" readonly="true" dynamicReload="true" ealwaysUseInDialogHeightCalc="true">
+                <Label>TRV Model:</Label>
+            </Field>
+
+            <Field id="supportsHvacOnOff" type="checkbox" enabledBindingId="supportsHvacOnOffHidden" readonly="true" defaultValue="false" alwaysUseInDialogHeightCalc="true">
+                <Label>TRV Supports ON/OFF:</Label>
+                <Description>Set by Plugin depending on TRV model</Description>
+            </Field>
+            <Field id="setpointHeatMinimum" type="textfield" enabledBindingId="supportsHvacOnOffHidden" defaultValue="0" readonly="true" ealwaysUseInDialogHeightCalc="true">
+                <Label>TRV Minimum Settable Temperature [OFF]:</Label>
+            </Field>
+            <Field id="help-7" type="label" alignWithControl="true" enabledBindingId="supportsHvacOnOffHidden" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Set by Plugin depending on TRV model.</Label>
+            </Field>
+            <Field id="setpointHeatMaximum" type="textfield" enabledBindingId="supportsHvacOnOffHidden" defaultValue="30" readonly="true" alwaysUseInDialogHeightCalc="true">
+                <Label>TRV Maximum Settable Temperature [FULLY ON]:</Label>
+            </Field>
+            <Field id="help-8" type="label" alignWithControl="true" enabledBindingId="supportsHvacOnOffHidden" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Set by Plugin depending on TRV model.</Label>
+            </Field>
+
+            <Field id="valveAssistance" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true" dynamicReload="true">
+                <Label>Valve Assistance:</Label>
+                <Description>Assist TRV using valve commands</Description>
+            </Field>
+            <Field id="help-9" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true" dynamicReload="true">
+                <Label>^ If the TRV supports Valve Commands, selecting this option can help expedite the response of the TRV to a setpoint change and also help ameliorate the situation where the TRV sometimes gets into a false state e.g. says it is off when the valve is still open. The plugin default setting is ON.</Label>
+            </Field>
+
+            <Field id="separator-5" type="separator" alwaysUseInDialogHeightCalc="true"/>
+            <Field id="header-6" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+                <Label>REMOTE DETAILS</Label>
+            </Field>
+
+            <Field id="remoteThermostatContolEnabled" type="checkbox" defaultValue="false">
+                <Label>TRV Remote Control:</Label>
+                <Description>Check to select Remote Thermostat to control TRV</Description>
+            </Field>
+            <Field id="help-14" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Optionally, select a remote thermostat (or temperature measuring device) that can be used to control the TRV.</Label>
+                </Field>
+            <Field id="remoteDevId" type="menu" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Remote Thermostat:</Label>
+                <List class="self" method="remoteThermostatDevices"/>
+            </Field>
+            <Field id="remoteSetpointHeatControl" type="checkbox" defaultValue="false" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Remote Setpoint Heat Adjustment:</Label>
+                <Description>Check to enable manual adjustment.</Description>
+            </Field>
+            <Field id="remoteDeltaMax" type="textfield"  defaultValue="5" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Remote Delta Max:</Label>
+            </Field>
+            <Field id="help-15" type="label" alignWithControl="true" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify the maximum number of degrees to exceed the TRV Heat Setpoint to ensure the TRV is controlled by the Remote Thermostat and not turned off too early.</Label>
+                </Field>
+            <Field id="separator-6" type="separator" />
+            <Field id="header-7" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+                <Label>SCHEDULING</Label>
+            </Field>
+
+
+            <Field id="help-16" type="label" alwaysUseInDialogHeightCalc="true">
+                <Label>Confirm if scheduled heating is required and if so select up to four schedules and define the ON and OFF times and heat setpoints to be used by this device for the checked heating periods.</Label>
+            </Field>
+            <Field id="schedule1Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Heating Schedule One:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule1TimeOn" type="textfield" defaultValue="07:00" visibleBindingId="schedule1Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule1TimeOff" type="textfield" defaultValue="10:00" visibleBindingId="schedule1Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule1SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="schedule1Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+
+            <Field id="schedule2Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Heating Schedule Two:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule2TimeOn" type="textfield" defaultValue="12:00" visibleBindingId="schedule2Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule2TimeOff" type="textfield" defaultValue="14:00" visibleBindingId="schedule2Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule2SetpointHeat" type="textfield" defaultValue="20" visibleBindingId="schedule2Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+
+            <Field id="schedule3Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Heating Schedule Three:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule3TimeOn" type="textfield" defaultValue="17:00" visibleBindingId="schedule3Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule3TimeOff" type="textfield" defaultValue="20:00" visibleBindingId="schedule3Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule3SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="schedule3Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+
+            <Field id="schedule4Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="false">
+                <Label>Heating Schedule Four:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule4TimeOn" type="textfield" defaultValue="22:00" visibleBindingId="schedule4Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule4TimeOff" type="textfield" defaultValue="22:30" visibleBindingId="schedule4Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule4SetpointHeat" type="textfield" defaultValue="22" visibleBindingId="schedule4Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+
+        </ConfigUI>
+
+        <States>
+
+            <State id="advanceActive">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Advance Active Changed</TriggerLabel>
+                <ControlPageLabel>Advance Active</ControlPageLabel>
+            </State>
+
+            <State id="advanceActivatedTime">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Advance Activated Time Changed</TriggerLabel>
+                <ControlPageLabel>Advance Activated Time </ControlPageLabel>
+            </State>
+
+            <State id="advanceStatusUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Advance Status UI Changed</TriggerLabel>
+                <ControlPageLabel>Advance Status UI</ControlPageLabel>
+            </State>
+
+            <State id="advanceToScheduleTime">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Advance To Schedule Time Changed</TriggerLabel>
+                <ControlPageLabel>Advance To Schedule Time</ControlPageLabel>
+            </State>
+
+            <State id="batteryLevel">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Battery Level Changed</TriggerLabel>
+                <ControlPageLabel>Battery Level</ControlPageLabel>
+            </State>
+
+            <State id="batteryLevelRemote">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Remote Battery Level Changed</TriggerLabel>
+                <ControlPageLabel>Remote Battery Level</ControlPageLabel>
+            </State>
+
+            <State id="batteryLevelTrv">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>TRV Battery Level Changed</TriggerLabel>
+                <ControlPageLabel>TRV Battery Level</ControlPageLabel>
+            </State>
+
+            <State id="boostActive">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Boost Changed</TriggerLabel>
+                <ControlPageLabel>Boost Active</ControlPageLabel>
+            </State>
+
+            <State id="boostDeltaT">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Boost Delta T Changed</TriggerLabel>
+                <ControlPageLabel>Boost Delta T</ControlPageLabel>
+            </State>
+
+            <State id="boostMinutes">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Boost Minutes Changed</TriggerLabel>
+                <ControlPageLabel>Boost Minutes</ControlPageLabel>
+            </State>
+
+            <State id="boostMode">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Boost Mode Changed</TriggerLabel>
+                <ControlPageLabel>Boost Mode</ControlPageLabel>
+            </State>
+
+            <State id="boostModeUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Boost Mode UI Changed</TriggerLabel>
+                <ControlPageLabel>Boost Mode UI</ControlPageLabel>
+            </State>
+
+            <State id="boostSetpoint">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Boost Setpoint Changed</TriggerLabel>
+                <ControlPageLabel>Boost Setpoint</ControlPageLabel>
+            </State>
+
+            <State id="boostStatusUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Boost Status UI Changed</TriggerLabel>
+                <ControlPageLabel>Boost Status UI</ControlPageLabel>
+            </State>
+
+            <State id="boostTimeEnd">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Boost Time End Changed</TriggerLabel>
+                <ControlPageLabel>Boost Time End</ControlPageLabel>
+            </State>
+
+            <State id="boostTimeStart">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Boost Time Start Changed</TriggerLabel>
+                <ControlPageLabel>Boost Time Start</ControlPageLabel>
+            </State>
+
+            <State id="controllerMode">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>TRV COntroller Mode Changed</TriggerLabel>
+                <ControlPageLabel>TRV Controller Mode</ControlPageLabel>
+            </State>
+
+            <State id="controllerModeUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>TRV Controller Mode Changed</TriggerLabel>
+                <ControlPageLabel>TRV Controller Mode</ControlPageLabel>
+            </State>
+
+            <State id="extendActivatedTime">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Extend Activated Time Changed</TriggerLabel>
+                <ControlPageLabel>Extend Activated Time</ControlPageLabel>
+            </State>
+
+            <State id="extendActive">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Extend Changed</TriggerLabel>
+                <ControlPageLabel>Extend Active</ControlPageLabel>
+            </State>
+
+            <State id="extendLimitReached">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Extend Limit Reached Changed</TriggerLabel>
+                <ControlPageLabel>Extend Limit Reached</ControlPageLabel>
+            </State>
+
+            <State id="extendMinutes">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Extend Minutes Changed</TriggerLabel>
+                <ControlPageLabel>Extend Minutes</ControlPageLabel>
+            </State>
+
+            <State id="extendScheduleNewTime">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Extend Schedule New Time Changed</TriggerLabel>
+                <ControlPageLabel>Extend Schedule New Time</ControlPageLabel>
+            </State>
+
+            <State id="extendScheduleOriginalTime">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Extend Schedule Original Time Changed</TriggerLabel>
+                <ControlPageLabel>Extend Schedule Original Time</ControlPageLabel>
+            </State>
+
+            <State id="extendStatusUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Extend Status UI Changed</TriggerLabel>
+                <ControlPageLabel>Extend Status UI</ControlPageLabel>
+            </State>
+
+            <State id="hvacOperationModeTrv">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>TRV HVAC Operation Mode Changed</TriggerLabel>
+                <ControlPageLabel>TRV HVAC Operation Mode</ControlPageLabel>
+            </State>
+
+            <State id="nextScheduleExecutionTime"> 
+                <ValueType>String</ValueType>
+                <TriggerLabel>Next Schedule Execution Time Changed</TriggerLabel>
+                <ControlPageLabel>Next Schedule Execution Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule1Active">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule One Active Changed</TriggerLabel>
+                <ControlPageLabel>Schedule One Active</ControlPageLabel>
+            </State>
+
+            <State id="schedule1Enabled">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule One Enabled Changed</TriggerLabel>
+                <ControlPageLabel>Schedule One Enabled</ControlPageLabel>
+            </State>
+
+            <State id="schedule1TimeOn">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule One On Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule One On Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule1TimeOff">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule One Off Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule One Off Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule1SetpointHeat">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule One Setpoint Heat Changed</TriggerLabel>
+                <ControlPageLabel>Schedule One Setpoint Heat</ControlPageLabel>
+            </State>
+
+            <State id="schedule1TimeUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule One Times Changed</TriggerLabel>
+                <ControlPageLabel>Schedule One Times</ControlPageLabel>
+            </State>
+
+            <State id="schedule2Active">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Two Active Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Two Active</ControlPageLabel>
+            </State>
+
+            <State id="schedule2Enabled">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Two Enabled Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Two Enabled</ControlPageLabel>
+            </State>
+
+            <State id="schedule2TimeOn">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Two On Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Two On Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule2TimeOff">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Two Off Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Two Off Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule2SetpointHeat">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Two Setpoint Heat Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Two Setpoint Heat</ControlPageLabel>
+            </State>
+
+            <State id="schedule2TimeUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Two Times Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Two Times</ControlPageLabel>
+            </State>
+
+            <State id="schedule3Active">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Three Active Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Three Active</ControlPageLabel>
+            </State>
+
+            <State id="schedule3Enabled">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Three Enabled Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Three Enabled</ControlPageLabel>
+            </State>
+
+            <State id="schedule3TimeOn">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Three On Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Three On Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule3TimeOff">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Three Off Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Three Off Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule3SetpointHeat">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Three Setpoint Heat Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Three Setpoint Heat</ControlPageLabel>
+            </State>
+
+            <State id="schedule3TimeUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Three Times Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Three Times</ControlPageLabel>
+            </State>
+
+            <State id="schedule4Active">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Four Active Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Four Active</ControlPageLabel>
+            </State>
+
+            <State id="schedule4Enabled">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Four Enabled Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Four Enabled</ControlPageLabel>
+            </State>
+
+            <State id="schedule4TimeOn">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Four On Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Four On Time</ControlPageLabel>
+            </State>
+
+             <State id="schedule4TimeOff">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Four Off Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Four Off Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule4SetpointHeat">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Four Setpoint Heat Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Four Setpoint Heat</ControlPageLabel>
+            </State>
+
+            <State id="schedule4TimeUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Four Times Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Four Times</ControlPageLabel>
+            </State>
+
+            <State id="setpointHeatOnDefault">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>Heat Setpoint When On changed</TriggerLabel>
+                <ControlPageLabel>Current Heat When On Setpoint</ControlPageLabel>
+            </State>
+
+            <State id="setpointHeatMaximum">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>Heat Setpoint Maximum [Fully On] changed</TriggerLabel>
+                <ControlPageLabel>Heat Setpoint Maximum [Fully On]</ControlPageLabel>
+            </State>
+
+            <State id="setpointHeatMinimum">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>Heat Setpoint Minimum [Fully Off] changed</TriggerLabel>
+                <ControlPageLabel>Heat Setpoint Minimum [Fully Off]</ControlPageLabel>
+            </State>
+
+            <State id="setpointHeatTrv">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>TRV Heat Setpoint changed</TriggerLabel>
+                <ControlPageLabel>Current TRV Heat Setpoint</ControlPageLabel>
+            </State>
+
+            <State id="setpointHeatRemote">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>Remote Heat Setpoint changed</TriggerLabel>
+                <ControlPageLabel>Remote Current Heat Setpoint</ControlPageLabel>
+            </State>
+
+            <State id="temperature">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>Temperature Changed</TriggerLabel>
+                <ControlPageLabel>Temperature</ControlPageLabel>
+            </State>
+
+            <State id="temperatureTrv">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>TRV Temperature Changed</TriggerLabel>
+                <ControlPageLabel>TRV Temperature</ControlPageLabel>
+            </State>
+
+            <State id="temperatureRemote">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>Remote Temperature Changed</TriggerLabel>
+                <ControlPageLabel>Remote Temperature</ControlPageLabel>
+            </State>
+
+            <State id="temperatureUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Temperature(s) Changed</TriggerLabel>
+                <ControlPageLabel>Temperature(s)</ControlPageLabel>
+            </State>
+
+            <State id="valvePercentageOpen"> 
+                <ValueType>String</ValueType>
+                <TriggerLabel>Valve Percentage Open Changed</TriggerLabel>
+                <ControlPageLabel>Valve Percentage Open</ControlPageLabel>
+            </State>
+
+            <State id="eventReceivedDateTimeRemote"> 
+                <ValueType>String</ValueType>
+                <TriggerLabel>Last Remote Received Event Time Changed</TriggerLabel>
+                <ControlPageLabel>Last Remote Received Event Time</ControlPageLabel>
+            </State>
+
+            <State id="zwaveEventReceivedDateTimeTrv"> 
+                <ValueType>String</ValueType>
+                <TriggerLabel>Last TRV Z-Wave Received Event Time Changed</TriggerLabel>
+                <ControlPageLabel>Last TRV Z-Wave Received Event Time</ControlPageLabel>
+            </State>
+            <State id="zwaveEventReceivedDateTimeRemote"> 
+                <ValueType>String</ValueType>
+                <TriggerLabel>Last Remote Z-Wave Received Event Time Changed</TriggerLabel>
+                <ControlPageLabel>Last Remote Z-Wave Received Event Time</ControlPageLabel>
+            </State>
+
+            <State id="zwaveEventSentDateTimeTrv"> 
+                <ValueType>String</ValueType>
+                <TriggerLabel>Last TRV Z-Wave Sent Event Time Changed</TriggerLabel>
+                <ControlPageLabel>Last TRV Z-Wave Sent Event Time</ControlPageLabel>
+            </State>
+            <State id="zwaveEventSentDateTimeRemote"> 
+                <ValueType>String</ValueType>
+                <TriggerLabel>Last Remote Z-Wave Sent Event Time Changed</TriggerLabel>
+                <ControlPageLabel>Last Remote Z-Wave Sent Event Time</ControlPageLabel>
+            </State>
+
+        </States>
+<!--        <UiDisplayStateId>temperatureUi</UiDisplayStateId>
+ -->    </Device>
+</Devices>
