@@ -1068,9 +1068,9 @@ class ThreadTrvHandler(threading.Thread):
                 try:
                     # if there are thermostats calling for heat, the heating needs to be 'on'
                     if len(self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']) > 0:
-                        indigo.thermostat.setHvacMode(heatingId, value=indigo.kHvacMode.Heat) # remind Heat Source Controller to stay 'on'
+                        indigo.thermostat.setHvacMode(heatingId, value=HVAC_HEAT) # remind Heat Source Controller to stay 'on'
                     else:
-                        indigo.thermostat.setHvacMode(heatingId, value=indigo.kHvacMode.Off) # remind Heat Source Controller to stay 'off'
+                        indigo.thermostat.setHvacMode(heatingId, value=HVAC_OFF) # remind Heat Source Controller to stay 'off'
                 finally:
                     self.globals['lock'].release()
 
@@ -1167,7 +1167,7 @@ class ThreadTrvHandler(threading.Thread):
                         if dev.states['hvacOperationModeTrv'] != int(updateValue):
                             if int(updateValue) == RESET_TO_HVAC_HEAT:
                                 updateValue = HVAC_HEAT
-                                indigo.thermostat.setHvacMode(self.globals['trvc'][trvCtlrDevId]['trvDevId'], value=indigo.kHvacMode.Heat)  # Force reset on TRV device
+                                indigo.thermostat.setHvacMode(self.globals['trvc'][trvCtlrDevId]['trvDevId'], value=HVAC_HEAT)  # Force reset on TRV device
                             updateKeyValueList.append({'key': 'hvacOperationModeTrv', 'value':  int(updateValue)})
                         self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] = int(updateValue)
 
@@ -1212,14 +1212,16 @@ class ThreadTrvHandler(threading.Thread):
                             if dev.states['batteryLevel'] != float(updateValue):
                                 updateKeyValueList.append({'key': 'batteryLevel', 'value':  int(updateValue)})
 
-                    elif updateKey == UPDATE_REMOTE_TEMPERATURE:  
-                        self.globals['trvc'][trvCtlrDevId]['temperatureRemote'] = float(updateValue)
-                        self.globals['trvc'][trvCtlrDevId]['temperature'] = float(updateValue)
-                        if dev.states['temperatureRemote'] != float(updateValue):
-                            updateKeyValueList.append({'key': 'temperatureRemote', 'value':  float(updateValue)})
-                            updateKeyValueList.append({'key': 'temperature', 'value':  float(updateValue)})
-                            updateKeyValueList.append({'key': 'temperatureInput1', 'value': float(updateValue), 'uiValue': '{:.1f} °C'.format(float(updateValue))})
-                            updateKeyValueList.append({'key': 'temperatureUi', 'value': 'R: {:.1f} °C, T: {:.1f} °C'.format(float(updateValue), float(self.globals['trvc'][trvCtlrDevId]['temperatureTrv']))})
+                    elif updateKey == UPDATE_REMOTE_TEMPERATURE:
+                        updatevaluePlusOffset = float(updateValue) + float(self.globals['trvc'][trvCtlrDevId]['remoteTempOffset'])  # Apply Offset
+                        self.globals['trvc'][trvCtlrDevId]['temperatureRemote'] = float(updatevaluePlusOffset)
+                        self.globals['trvc'][trvCtlrDevId]['temperature'] = float(updatevaluePlusOffset)
+                        if dev.states['temperatureRemote'] != float(updatevaluePlusOffset):
+                            updateKeyValueList.append({'key': 'temperatureRemotePreOffset', 'value':  float(updateValue)})
+                            updateKeyValueList.append({'key': 'temperatureRemote', 'value':  float(updatevaluePlusOffset)})
+                            updateKeyValueList.append({'key': 'temperature', 'value':  float(updatevaluePlusOffset)})
+                            updateKeyValueList.append({'key': 'temperatureInput1', 'value': float(updatevaluePlusOffset), 'uiValue': '{:.1f} °C'.format(float(updatevaluePlusOffset))})
+                            updateKeyValueList.append({'key': 'temperatureUi', 'value': 'R: {:.1f} °C, T: {:.1f} °C'.format(float(updatevaluePlusOffset), float(self.globals['trvc'][trvCtlrDevId]['temperatureTrv']))})
 
                             # if spirit:
 
@@ -1586,12 +1588,11 @@ class ThreadTrvHandler(threading.Thread):
                         self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
                         indigo.thermostat.setHeatSetpoint(trvDevId, value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))
                         self.trvHandlerLogger.debug(u'controlTrv: Turning OFF and adjusting TRV Setpoint Heat to \'{}\'. Z-Wave Pending = {}, Setpoint = \'{}\', Sequence = \'{}\'.'.format(float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']), self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointFlag'], self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'], self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointSequence']))
+
                         indigo.devices[trvCtlrDevId].updateStateOnServer(key='setpointHeatTrv', value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))                    
 
-                        if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:  # e.g. EUROTronic Spirit Thermostat
-                            if self.globals['trvc'][trvCtlrDevId]['valveAssistance']:
+                        if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0 and self.globals['trvc'][trvCtlrDevId]['valveAssistance']:  # e.g. EUROTronic Spirit Thermostat
                                 self.trvHandlerLogger.debug(u'controlTrv: >>>>>> \'{}\' SUPPORTS VALVE CONTROL - CLOSING VALVE <<<<<<<<<'.format(indigo.devices[trvDevId].name))
-
                                 zwaveRawCommandSequence = list()
                                 zwaveRawCommandSequence.append((1, 0, [], 'Timer Initialisation'))
                                 zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x1F], 'Thermostat Mode Control - Valve Control'))
@@ -1599,8 +1600,17 @@ class ThreadTrvHandler(threading.Thread):
                                 zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x01, 0x00], 'Switch Multilevel - Valve = 0%'))
                                 zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
                                 zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
-                                zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x01], 'Thermostat Mode Control - Heat'))
+                                if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff']:
+                                    zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x00], 'Thermostat Mode Control - Off'))
+                                else:
+                                    zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x01], 'Thermostat Mode Control - Heat'))
                                 self.controlTrvSpiritValveCommandsQueued(trvCtlrDevId, zwaveRawCommandSequence)
+                        else:
+                            if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff']:
+                                indigo.thermostat.setHvacMode(trvDevId, value=HVAC_OFF)
+
+
+
 
             if float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']) > float(self.globals['trvc'][trvCtlrDevId]['temperature']) or hvacFullPower:
 
@@ -1628,6 +1638,7 @@ class ThreadTrvHandler(threading.Thread):
                         self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
                         indigo.thermostat.setHeatSetpoint(trvDevId, value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))
                         self.trvHandlerLogger.debug(u'controlTrv: Turning ON and adjusting TRV Setpoint Heat to \'{}\'. Z-Wave Pending = {}, Setpoint = \'{}\', Sequence = \'{}\'.'.format(float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']), self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointFlag'], self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'], self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointSequence']))
+
                         indigo.devices[trvCtlrDevId].updateStateOnServer(key='setpointHeatTrv', value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))                    
 
                         if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:  # EUROTronic Spirit Thermostat special logic
@@ -1684,7 +1695,10 @@ class ThreadTrvHandler(threading.Thread):
             if len(zwaveRawCommandString) > 0:       
                 indigo.zwave.sendRaw(device = indigo.devices[targetDeviceId], cmdBytes = zwaveRawCommandString, sendMode = 1)
                 self.trvHandlerLogger.debug(u'>>>>>> ZWave Raw Command for device \'{}\' = {}'.format(indigo.devices[targetDeviceId].name, zwaveRawCommandDescription))
-
+                if zwaveRawCommandString == [0x40, 0x01, 0x00]:
+                    indigo.thermostat.setHvacMode(targetDeviceId, value=HVAC_OFF)
+                elif zwaveRawCommandString == [0x40, 0x01, 0x01]:
+                    indigo.thermostat.setHvacMode(targetDeviceId, value=HVAC_HEAT)
             if len(zwaveRawCommandSequence) > 0:
                 delaySeconds = zwaveRawCommandSequence[0][0]
                 self.globals['timers']['SpiritValveCommands'][trvCtlrDevId] = threading.Timer(float(delaySeconds), self.controlTrvSpiritTriggered, [trvCtlrDevId, zwaveRawCommandSequence])

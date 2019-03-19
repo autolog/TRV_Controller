@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<data>
+	<model name="Thermostat (Spirit)">
+		<supportsWakeup>false</supportsWakeup>
+		<supportsTemperatureReporting>true</supportsTemperatureReporting>
+		<supportsHvacOnOff>true</supportsHvacOnOff>
+		<supportsValveControl>true</supportsValveControl>
+		<supportsManualSetpoint>true</supportsManualSetpoint>
+		<setpointHeatMinimum>8.0</setpointHeatMinimum>
+		<setpointHeatMaximum>28.0</setpointHeatMaximum>
+	</model>		
+	<model name="Radiator Thermostat (Living Connect-Z)">
+		<supportsWakeup>true</supportsWakeup>
+		<supportsTemperatureReporting>false</supportsTemperatureReporting>
+		<supportsHvacOnOff>false</supportsHvacOnOff>
+		<supportsValveControl>false</supportsValveControl>
+		<supportsManualSetpoint>false</supportsManualSetpoint>
+		<setpointHeatMinimum>4.0</setpointHeatMinimum>
+		<setpointHeatMaximum>28.0</setpointHeatMaximum>
+	</model>		
+	<model name="Radiator Thermostat (Living Connect LC-13)">
+		<supportsWakeup>true</supportsWakeup>
+		<supportsTemperatureReporting>false</supportsTemperatureReporting>
+		<supportsHvacOnOff>false</supportsHvacOnOff>
+		<supportsValveControl>false</supportsValveControl>
+		<supportsManualSetpoint>false</supportsManualSetpoint>
+		<setpointHeatMinimum>4.0</setpointHeatMinimum>
+		<setpointHeatMaximum>28.0</setpointHeatMaximum>
+	</model>		
+	<model name="Radiator Thermostat (POPP TRV)">
+		<supportsWakeup>true</supportsWakeup>
+		<supportsTemperatureReporting>true</supportsTemperatureReporting>
+		<supportsHvacOnOff>false</supportsHvacOnOff>
+		<supportsValveControl>false</supportsValveControl>
+		<supportsManualSetpoint>false</supportsManualSetpoint>
+		<setpointHeatMinimum>4.0</setpointHeatMinimum>
+		<setpointHeatMaximum>28.0</setpointHeatMaximum>
+	</model>		
+	<model name="Radiator Thermostat (Devolo 09356)">
+		<supportsWakeup>true</supportsWakeup>
+		<supportsTemperatureReporting>true</supportsTemperatureReporting>
+		<supportsHvacOnOff>false</supportsHvacOnOff>
+		<supportsValveControl>false</supportsValveControl>
+		<supportsManualSetpoint>false</supportsManualSetpoint>
+		<setpointHeatMinimum>4.0</setpointHeatMinimum>
+		<setpointHeatMaximum>28.0</setpointHeatMaximum>
+	</model>		
+	<model name="Thermostat (Comet Z)">
+		<supportsWakeup>true</supportsWakeup>
+		<supportsTemperatureReporting>true</supportsTemperatureReporting>
+		<supportsHvacOnOff>false</supportsHvacOnOff>
+		<supportsValveControl>false</supportsValveControl>
+		<supportsManualSetpoint>false</supportsManualSetpoint>
+		<setpointHeatMinimum>6.0</setpointHeatMinimum>
+		<setpointHeatMaximum>28.0</setpointHeatMaximum>
+	</model>		
+	<model name="Thermostat (Stella Z)">
+		<supportsWakeup>true</supportsWakeup>
+		<supportsTemperatureReporting>true</supportsTemperatureReporting>
+		<supportsHvacOnOff>false</supportsHvacOnOff>
+		<supportsValveControl>false</supportsValveControl>
+		<supportsManualSetpoint>false</supportsManualSetpoint>
+		<setpointHeatMinimum>6.0</setpointHeatMinimum>
+		<setpointHeatMaximum>28.0</setpointHeatMaximum>
+	</model>		
+	<model name="Unknown TRV Model">
+		<supportsWakeup>false</supportsWakeup>
+		<supportsTemperatureReporting>false</supportsTemperatureReporting>
+		<supportsHvacOnOff>false</supportsHvacOnOff>
+		<supportsValveControl>false</supportsValveControl>
+		<supportsManualSetpoint>false</supportsManualSetpoint>
+		<setpointHeatMinimum>10.0</setpointHeatMinimum>
+		<setpointHeatMaximum>28.0</setpointHeatMaximum>
+	</model>		
+</data>

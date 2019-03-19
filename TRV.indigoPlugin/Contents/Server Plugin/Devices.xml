@@ -92,23 +92,10 @@
                 </List>
             </Field>
 
-<!--             <Field id="updateCsvFile" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true">
-                <Label>Update CSV:</Label>
-                <Description>Check to update CSV file with state changes</Description>
-            </Field>
-            <Field id="updateAllCsvFiles" type="checkbox" defaultValue="false" visibleBindingId="updateCsvFile" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
-                <Label>Update All CSV Files:</Label>
-                <Description>Check to update all CSV files</Description>
-            </Field>
-
-             <Field id="help-5" type="label" alignWithControl="true" visibleBindingId="updateCsvFile" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
-                <Label>^ This will update all the CSV states at the same time which can help to create a consistent graph display.</Label>
-            </Field>
- -->            
             <Field id="csvShortName" type="textfield" defaultValue="" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
                 <Label>Short Name:</Label>
             </Field>
-            <Field id="help-6" type="label" alignWithControl="true" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-5" type="label" alignWithControl="true" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Specify a short name (say, max 10 characters) to be used to uniquely identify this device within a CSV file name</Label>
             </Field>
             <Field id="csvRetentionPeriodHours" type="textfield" defaultValue="24" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
@@ -150,20 +137,20 @@
                     <Option value="3">Specify Setpoint</Option>
                 </List>
             </Field>
-            <Field id="help-10" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-6" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Select the preferred method to specify the Heat Setpoint when the device is started.</Label>
             </Field>
             <Field id="setpointHeatDeviceStartDefault" type="textfield" defaultValue="8.0" visibleBindingId="setpointHeatDeviceStartMethod" visibleBindingValue="3" alwaysUseInDialogHeightCalc="true">
                 <Label>Default Device Start Setpoint:</Label>
             </Field>
-            <Field id="help-11" type="label" alignWithControl="true" visibleBindingId="setpointHeatDeviceStartMethod" visibleBindingValue="3" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-7" type="label" alignWithControl="true" visibleBindingId="setpointHeatDeviceStartMethod" visibleBindingValue="3" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Specify the temperature that will be used as the Heat Setpoint for the device when the device is started.</Label>
             </Field>
 
             <Field id="setpointHeatOnDefault" type="textfield" defaultValue="21" alwaysUseInDialogHeightCalc="true">
                 <Label>Default ON Temperature:</Label>
             </Field>
-            <Field id="help-12" type="label" alignWithControl="true" enabledBindingId="supportsHvacOnOffHidden" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-8" type="label" alignWithControl="true" enabledBindingId="supportsHvacOnOffHidden" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Specify the default ON temperature that will be used as the Heat Setpoint if the device is manually turned on.</Label>
             </Field>
 
@@ -171,7 +158,7 @@
                 <Label>TRV Delta Max:</Label>
             </Field>
  -->
-            <Field id="help-13" type="label" alignWithControl="true" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-9" type="label" alignWithControl="true" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Specify the maximum number of degrees to increase the TRV Heat Setpoint by in order to ensure the TRV is controlled by the Remote Thermostat and not turned off too early.</Label>
             </Field>
 
@@ -180,7 +167,7 @@
                 <Label>TRV DETAILS</Label>
             </Field>
 
-            <Field id="supportsHvacOnOffHidden" type="checkbox" hidden="true" readonly="true" defaultValue="false" alwaysUseInDialogHeightCalc="true">
+            <Field id="supportsHvacOnOffHidden" type="checkbox" hidden="true" readonly="true" defaultValue="false" alwaysUseInDialogHeightCalc="true" dynamicReload="true">
                 <Label>TRV Supports HVAC ON/OFF - HIDDEN:</Label>
                 <Description>Set by Plugin depending on TRV model</Description>
             </Field>
@@ -189,29 +176,37 @@
                 <Label>TRV Model:</Label>
             </Field>
 
-            <Field id="supportsHvacOnOff" type="checkbox" enabledBindingId="supportsHvacOnOffHidden" readonly="true" defaultValue="false" alwaysUseInDialogHeightCalc="true">
+            <Field id="supportsHvacOnOff" type="checkbox" enabledBindingId="supportsHvacOnOffHidden" readonly="true"  dynamicReload="true" defaultValue="false" alwaysUseInDialogHeightCalc="true">
                 <Label>TRV Supports ON/OFF:</Label>
                 <Description>Set by Plugin depending on TRV model</Description>
             </Field>
-            <Field id="setpointHeatMinimum" type="textfield" enabledBindingId="supportsHvacOnOffHidden" defaultValue="0" readonly="true" ealwaysUseInDialogHeightCalc="true">
+            <Field id="setpointHeatMinimum" type="textfield" enabledBindingId="supportsHvacOnOffHidden" defaultValue="0"  dynamicReload="true" readonly="true" ealwaysUseInDialogHeightCalc="true">
                 <Label>TRV Minimum Settable Temperature [OFF]:</Label>
             </Field>
-            <Field id="help-7" type="label" alignWithControl="true" enabledBindingId="supportsHvacOnOffHidden" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-10" type="label" alignWithControl="true" enabledBindingId="supportsHvacOnOffHidden" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Set by Plugin depending on TRV model.</Label>
             </Field>
-            <Field id="setpointHeatMaximum" type="textfield" enabledBindingId="supportsHvacOnOffHidden" defaultValue="30" readonly="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="setpointHeatMaximum" type="textfield" enabledBindingId="supportsHvacOnOffHidden" defaultValue="30"  dynamicReload="true" readonly="true" alwaysUseInDialogHeightCalc="true">
                 <Label>TRV Maximum Settable Temperature [FULLY ON]:</Label>
             </Field>
-            <Field id="help-8" type="label" alignWithControl="true" enabledBindingId="supportsHvacOnOffHidden" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-11" type="label" alignWithControl="true" enabledBindingId="supportsHvacOnOffHidden" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Set by Plugin depending on TRV model.</Label>
             </Field>
 
-            <Field id="valveAssistance" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true" dynamicReload="true">
+            <Field id="valveAssistance" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true" dynamicReload="true" visibleBindingId="supportsValveControl" visibleBindingValue="true">
                 <Label>Valve Assistance:</Label>
                 <Description>Assist TRV using valve commands</Description>
             </Field>
-            <Field id="help-9" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true" dynamicReload="true">
-                <Label>^ If the TRV supports Valve Commands, selecting this option can help expedite the response of the TRV to a setpoint change and also help ameliorate the situation where the TRV sometimes gets into a false state e.g. says it is off when the valve is still open. The plugin default setting is ON.</Label>
+            <Field id="help-12" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true" dynamicReload="true" visibleBindingId="supportsValveControl" visibleBindingValue="true">
+                <Label>^ As this TRV supports Valve Commands, selecting this option can help expedite the response of the TRV to a setpoint change and also help ameliorate the situation where the TRV sometimes gets into a false state e.g. says it is off when the valve is still open. The plugin default setting is ON.</Label>
+            </Field>
+
+            <Field id="enableTrvOnOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" dynamicReload="true" visibleBindingId="supportsHvacOnOff" visibleBindingValue="true">
+                <Label>TRV ON/OFF:</Label>
+                <Description>Set OFF when at minimum Heat Setpoint else ON</Description>
+            </Field>
+            <Field id="help-13" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true" dynamicReload="true" visibleBindingId="supportsHvacOnOff" visibleBindingValue="true">
+                <Label>^ If the TRV supports HVAC ON/OFF Commands, selecting this option enables logic to turn the TRV off when the TRV Heat Setpoint is set to the minimum otherwise set to on. This may sometimes help in those circumstances where the TRV doesn't fully turn off when set to the mimimum [YMMV].</Label>
             </Field>
 
             <Field id="separator-5" type="separator" alwaysUseInDialogHeightCalc="true"/>
@@ -240,13 +235,19 @@
             <Field id="help-15" type="label" alignWithControl="true" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Specify the maximum number of degrees to exceed the TRV Heat Setpoint to ensure the TRV is controlled by the Remote Thermostat and not turned off too early.</Label>
                 </Field>
+            <Field id="remoteTempOffset" type="textfield"  defaultValue="0.0" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Remote Temperature Offset:</Label>
+            </Field>
+            <Field id="help-16" type="label" alignWithControl="true" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Specify the temperature offset that will be applied to the temperature returned by the remote thermostat e.g 0.5 or -1.0.</Label>
+                </Field>
             <Field id="separator-6" type="separator" />
             <Field id="header-7" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
                 <Label>SCHEDULING</Label>
             </Field>
 
 
-            <Field id="help-16" type="label" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-17" type="label" alwaysUseInDialogHeightCalc="true">
                 <Label>Confirm if scheduled heating is required and if so select up to four schedules and define the ON and OFF times and heat setpoints to be used by this device for the checked heating periods.</Label>
             </Field>
             <Field id="schedule1Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true">
@@ -655,6 +656,12 @@
                 <ValueType>Float</ValueType>
                 <TriggerLabel>TRV Temperature Changed</TriggerLabel>
                 <ControlPageLabel>TRV Temperature</ControlPageLabel>
+            </State>
+
+            <State id="temperatureRemotePreOffset">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>Remote Temperature [Pre-Offset] Changed</TriggerLabel>
+                <ControlPageLabel>Remote Temperature [Pre-Offset] </ControlPageLabel>
             </State>
 
             <State id="temperatureRemote">

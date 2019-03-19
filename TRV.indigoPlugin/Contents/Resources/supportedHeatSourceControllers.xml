@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<data>
+	<model name="1 Channel Boiler Actuator (SSR303 / ASR-ZW)"/>
+	<model name="2 Channel Boiler Actuator (SSR302)"/>
+	<model name="Smart Switch 6 (ZW096)"/>
+</data>

@@ -19,6 +19,7 @@ import operator
 import threading
 import time
 import sys
+import xml.etree.ElementTree as ET
 
 from constants import *
 from trvHandler import ThreadTrvHandler
@@ -167,32 +168,33 @@ class Plugin(indigo.PluginBase):
         self.globals['update'] = dict()
 
         # Setup dictionary of supported TRV models
-
-        csvFile = '{}/Plugins/TRV.indigoPlugin/Contents/Resources/supportedThermostatModels.csv'.format(self.globals['pluginInfo']['path'])
+        xmlFile = '{}/Plugins/TRV.indigoPlugin/Contents/Resources/supportedThermostatModels.xml'.format(self.globals['pluginInfo']['path'])
+        tree = ET.parse(xmlFile)
+        root = tree.getroot()
         self.globals['supportedTrvModels'] = dict()
-        with open(csvFile, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if row[0][0:1] != '#':  # Ignore first comment / header line
-                    supportsWakeup = bool(int(row[TRV_MODEL_SUPPORTS_WAKEUP + 1]))
-                    supportsTemperatureReporting = bool(int(row[TRV_MODEL_SUPPORTS_TEMPERATURE_REPORTING + 1]))
-                    supportsHvacOnOff = bool(int(row[TRV_MODEL_SUPPORTS_HVAC_ON_OFF + 1]))
-                    supportsValveControl = bool(int(row[TRV_MODEL_SUPPORTS_VALVE_CONTROL + 1]))
-                    supportsManualSetpoint = bool(int(row[TRV_MODEL_SUPPORTS_MANUAL_SETPOINT + 1]))
-                    setpointHeatMinimum = int(row[TRV_MODEL_SETPOINT_HEAT_MINIMUM + 1])
-                    setpointHeatMaximum = int(row[TRV_MODEL_SETPOINT_HEAT_MAXIMUM + 1])
-                    self.globals['supportedTrvModels'][row[0]] = [supportsWakeup, supportsTemperatureReporting, supportsHvacOnOff, supportsValveControl, supportsManualSetpoint, setpointHeatMinimum, setpointHeatMaximum]
-        # indigo.server.log(u'CSVFILE DICT:\n{}'.format(self.globals['supportedTrvModels']))
+        for model in root.findall('model'):
+            trv_model_name = model.get('name')
+            self.globals['supportedTrvModels'][trv_model_name] = dict()
+            self.globals['supportedTrvModels'][trv_model_name]['supportsWakeup'] = bool(True if model.find('supportsWakeup').text == 'true' else False)
+            self.globals['supportedTrvModels'][trv_model_name]['supportsTemperatureReporting'] = bool(True if model.find('supportsTemperatureReporting').text == 'true' else False)
+            self.globals['supportedTrvModels'][trv_model_name]['supportsHvacOnOff'] = bool(True if model.find('supportsHvacOnOff').text == 'true' else False)
+            self.globals['supportedTrvModels'][trv_model_name]['supportsValveControl'] = bool(True if model.find('supportsValveControl').text == 'true' else False)
+            self.globals['supportedTrvModels'][trv_model_name]['supportsManualSetpoint'] = bool(True if model.find('supportsManualSetpoint').text == 'true' else False)
+            self.globals['supportedTrvModels'][trv_model_name]['setpointHeatMinimum'] = float(model.find('setpointHeatMinimum').text)
+            self.globals['supportedTrvModels'][trv_model_name]['setpointHeatMaximum'] = float(model.find('setpointHeatMaximum').text) 
+
+            # self.generalLogger.error('XML [SUPPORTED TRV MODEL] =\n{}'.format(self.globals['supportedTrvModels'][trv_model_name]))
 
         # Setup dictionary of fully supported Heat Source Controller Devices
-
-        csvFile = '{}/Plugins/TRV.indigoPlugin/Contents/Resources/supportedHeatSourceControllers.csv'.format(self.globals['pluginInfo']['path'])
+        xmlFile = '{}/Plugins/TRV.indigoPlugin/Contents/Resources/supportedHeatSourceControllers.xml'.format(self.globals['pluginInfo']['path'])
+        tree = ET.parse(xmlFile)
+        root = tree.getroot()
         self.globals['supportedHeatSourceControllers'] = dict()
-        with open(csvFile, "r") as f:
-            reader = csv.reader(f)
-            for row in reader:
-                if row[0][0:1] != '#':  # Ignore first comment / header line
-                    self.globals['supportedHeatSourceControllers'][row[0]] = ''
+        for model in root.findall('model'):
+            heat_source_controller_model_name = model.get('name')
+            self.globals['supportedHeatSourceControllers'][heat_source_controller_model_name] = ''
+
+            # self.generalLogger.error('XML [SUPPORTED HEAT SOURCE CONTROLLER] =\n{}'.format(heat_source_controller_model_name))
 
         # Set Plugin Config Values
         self.closedPrefsConfigUi(pluginPrefs, False)
@@ -240,16 +242,6 @@ class Plugin(indigo.PluginBase):
 
         except StandardError, err:
             self.generalLogger.error(u'StandardError detected in TRV Plugin [Startup]. Line \'{}\' has error=\'{}\''.format(trvcDev.name, sys.exc_traceback.tb_lineno, err))   
-
-        # vvvv THIS SHOULD BE PER BOILER DEVICE NOT GLOBAL vvvv
-        # try:
-        #     self.variable_callingForHeat = indigo.variables["trv_Calling_For_Heat"]
-        # except StandardError, e:
-        #     try:
-        #         self.variable_callingForHeat = indigo.variable.create("trv_Calling_For_Heat", value="false", folder=self.variableFolderId)
-        #     except StandardError, e:
-        #         self.generalLogger.info(u"StandardError detected in Plugin Startup. Line '%s' has error='%s'" % (sys.exc_traceback.tb_lineno, e), isError=True)
-        # self.variableId = self.variable_callingForHeat.id
 
         self.generalLogger.info(u'\'TRV Controller\' initialization complete')
 
@@ -490,7 +482,10 @@ class Plugin(indigo.PluginBase):
                 zwaveCommandVerb =  byteListStr[24:26]
                 if zwaveCommandClass in ZWAVE_COMMAND_CLASS_TRANSLATION:
                     zwaveCommandClassUi = ZWAVE_COMMAND_CLASS_TRANSLATION[zwaveCommandClass]
-                    zwaveCommandVerbUi = ZWAVE_COMMAND_VERB_TRANSLATION[zwaveCommandVerb]
+                    if zwaveCommandVerb in ZWAVE_COMMAND_VERB_TRANSLATION:
+                        zwaveCommandVerbUi = ZWAVE_COMMAND_VERB_TRANSLATION[zwaveCommandVerb]
+                    else:
+                        zwaveCommandVerbUi = 'Verb \'{}\' unknown to plugin'.format(zwaveCommandVerb)
                     address = int(zwaveCommandNodeId,16)
                     if address in self.globals['zwave']['addressToDevice']:
                         dev = indigo.devices[self.globals['zwave']['addressToDevice'][address]['devId']]  # TRV or Remote
@@ -641,7 +636,10 @@ class Plugin(indigo.PluginBase):
                 trvCtlrDevId = 0
                 if zwaveCommandClass in ZWAVE_COMMAND_CLASS_TRANSLATION:
                     zwaveCommandClassUi = ZWAVE_COMMAND_CLASS_TRANSLATION[zwaveCommandClass]
-                    zwaveCommandVerbUi = ZWAVE_COMMAND_VERB_TRANSLATION[zwaveCommandVerb]
+                    if zwaveCommandVerb in ZWAVE_COMMAND_VERB_TRANSLATION:
+                        zwaveCommandVerbUi = ZWAVE_COMMAND_VERB_TRANSLATION[zwaveCommandVerb]
+                    else:
+                        zwaveCommandVerbUi = 'Verb \'{}\' unknown to plugin'.format(zwaveCommandVerb)
                     address = int(zwaveCommandNodeId,16)
                     if address in self.globals['zwave']['addressToDevice']:
                         dev = indigo.devices[self.globals['zwave']['addressToDevice'][address]['devId']]
@@ -1127,15 +1125,19 @@ class Plugin(indigo.PluginBase):
                                             self.globals['trvc'][trvCtlrDevId]['remoteDevId'] = 0
 
                         if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] != 0:
-                            if origTemp != newTemp:
+
+                            # origTemp should already have had the offset applied - just need to add it to newTemp to ensure comparison is valide
+
+                            newTempPlusOffset = newTemp + float(self.globals['trvc'][trvCtlrDevId]['remoteTempOffset'])  
+                            if origTemp != newTempPlusOffset:
                                 updateRequested = True
-                                updateList[UPDATE_REMOTE_TEMPERATURE] = newTemp
-                                updateLog[UPDATE_REMOTE_TEMPERATURE] = u'Temperature updated from {} to {} [Internal store = \'{}\']'.format(origTemp, newTemp, self.globals['trvc'][trvCtlrDevId]['temperatureRemote'])
+                                updateList[UPDATE_REMOTE_TEMPERATURE] = newTemp  # Send through the original (non-offsetted) temperature
+                                updateLog[UPDATE_REMOTE_TEMPERATURE] = u'Temperature updated from {} to {} [Internal store = \'{}\']'.format(origTemp, newTempPlusOffset, self.globals['trvc'][trvCtlrDevId]['temperatureRemote'])
                                 if self.globals['trvc'][trvCtlrDevId]['updateCsvFile']:
                                     if self.globals['trvc'][trvCtlrDevId]['updateAllCsvFiles']:
                                         self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_LOW, 0, CMD_UPDATE_ALL_CSV_FILES, trvCtlrDevId, None])
                                     else:
-                                        self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_LOW, 0, CMD_UPDATE_CSV_FILE, trvCtlrDevId, ['temperatureRemote', newTemp]])
+                                        self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_LOW, 0, CMD_UPDATE_CSV_FILE, trvCtlrDevId, ['temperatureRemote', newTempPlusOffset]])  # The offset temperature for the CSV file
 
                             if self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
                                 if float(newDev.heatSetpoint) != float(origDev.heatSetpoint):
@@ -1225,35 +1227,35 @@ class Plugin(indigo.PluginBase):
         
         #  DaveL17's code !!!
 
-        try:
-            indigo.PluginBase.deviceUpdated(self, origDev, newDev)
+        # try:
+        #     indigo.PluginBase.deviceUpdated(self, origDev, newDev)
 
-            # Attribute changes
-            # exclude_list = ['globalProps', 'lastChanged', 'lastSuccessfulComm', 'ownerProps', 'states']
-            exclude_list = ['globalProps', 'ownerProps', 'states']
-            attrib_list = [attr for attr in dir(origDev) if not callable(getattr(origDev, attr)) and '__' not in attr and attr not in exclude_list]
-            attrib_dict = {attrib: (getattr(origDev, attrib), getattr(newDev, attrib)) for attrib in attrib_list if getattr(origDev, attrib) != getattr(newDev, attrib)}
+        #     # Attribute changes
+        #     # exclude_list = ['globalProps', 'lastChanged', 'lastSuccessfulComm', 'ownerProps', 'states']
+        #     exclude_list = ['globalProps', 'ownerProps', 'states']
+        #     attrib_list = [attr for attr in dir(origDev) if not callable(getattr(origDev, attr)) and '__' not in attr and attr not in exclude_list]
+        #     attrib_dict = {attrib: (getattr(origDev, attrib), getattr(newDev, attrib)) for attrib in attrib_list if getattr(origDev, attrib) != getattr(newDev, attrib)}
 
-            # Property changes
-            orig_props = dict(origDev.ownerProps)
-            new_props = dict(newDev.ownerProps)
-            props_dict = {key: (orig_props[key], new_props[key]) for key in orig_props if orig_props[key] != new_props[key]}
+        #     # Property changes
+        #     orig_props = dict(origDev.ownerProps)
+        #     new_props = dict(newDev.ownerProps)
+        #     props_dict = {key: (orig_props[key], new_props[key]) for key in orig_props if orig_props[key] != new_props[key]}
 
-            # State changes
-            state_dict = {key: (origDev.states[key], val) for key, val in newDev.states.iteritems() if key not in origDev.states or val != origDev.states[key]}
+        #     # State changes
+        #     state_dict = {key: (origDev.states[key], val) for key, val in newDev.states.iteritems() if key not in origDev.states or val != origDev.states[key]}
 
-            updateInfo = u'\n{}  PLUGIN: List of uninteresting and ignored updates:'.format(fillChar)
-            if len(attrib_dict) > 0 or len(state_dict) > 0 or len(props_dict) > 0:
-                updateInfo = updateInfo + u'\n{}  > Attr: {}'.format(fillChar, attrib_dict)
-                updateInfo = updateInfo + u'\n{}  > Props: {}'.format(fillChar, props_dict)
-                updateInfo = updateInfo + u'\n{}  > States: {}'.format(fillChar, state_dict)
-            else:
-                updateInfo = updateInfo + (u'\n{}  > *** NOTHING CHANGED? ***').format(fillChar)
-            return updateInfo
+        #     updateInfo = u'\n{}  PLUGIN: List of uninteresting and ignored updates:'.format(fillChar)
+        #     if len(attrib_dict) > 0 or len(state_dict) > 0 or len(props_dict) > 0:
+        #         updateInfo = updateInfo + u'\n{}  > Attr: {}'.format(fillChar, attrib_dict)
+        #         updateInfo = updateInfo + u'\n{}  > Props: {}'.format(fillChar, props_dict)
+        #         updateInfo = updateInfo + u'\n{}  > States: {}'.format(fillChar, state_dict)
+        #     else:
+        #         updateInfo = updateInfo + (u'\n{}  > *** NOTHING CHANGED? ***').format(fillChar)
+        #     return updateInfo
 
-        except StandardError, err:
-            errorDetected = u'StandardError detected in TRV Plugin [deviceUpdatedList] for device \'{}\']. Line \'{}\' has error=\'{}\''.format(newDev.name, sys.exc_traceback.tb_lineno, err)  
-            return '{}  > {}'.format(fillChar, errorDetected)
+        # except StandardError, err:
+        #     errorDetected = u'StandardError detected in TRV Plugin [deviceUpdatedList] for device \'{}\']. Line \'{}\' has error=\'{}\''.format(newDev.name, sys.exc_traceback.tb_lineno, err)  
+        #     return '{}  > {}'.format(fillChar, errorDetected)
 
     def getActionConfigUiValues(self, valuesDict, typeId, actionId):
         self.methodTracer.threaddebug(u'Main Plugin Method')
@@ -2128,6 +2130,9 @@ class Plugin(indigo.PluginBase):
                  pluginProps['heatingId'] = '-1'
             if not 'heatingVarId' in pluginProps:
                  pluginProps['heatingVarId'] = '-1'
+            if 'forceTrvOnOff' in pluginProps:
+                pluginProps['enableTrvOnOff'] = pluginProps['forceTrvOnOff']
+                del pluginProps['forceTrvOnOff']
 
         except StandardError, err:
             self.generalLogger.error(u'StandardError detected in TRV Plugin [validateSchedule] for device \'{}\'. Line \'{}\' has error=\'{}\''.format(indigo.devices[devId].name, sys.exc_traceback.tb_lineno, err))   
@@ -2223,7 +2228,8 @@ class Plugin(indigo.PluginBase):
                             or remoteDev.subModel == 'Thermostat'
                             or 'temperatureInput1' in remoteDev.states
                             or 'temperature' in remoteDev.states
-                            or 'Temperature' in remoteDev.states):
+                            or 'Temperature' in remoteDev.states
+                            or remoteDev.deviceTypeId == 'hueMotionTemperatureSensor'):
                             valid = True
                     else:
                         remoteDevId = 0
@@ -2241,12 +2247,31 @@ class Plugin(indigo.PluginBase):
 
 
                 if remoteDevId != 0:
+
                     # Validate Remote Delta Maximum
-                    remoteDeltaMax = float(valuesDict.get('remoteDeltaMax', 5.0))
-                    if remoteDeltaMax < 0.0 or remoteDeltaMax > 10.0 or remoteDeltaMax % 0.5 != 0:
+                    valid = False
+                    try:
+                        remoteDeltaMax = float(valuesDict.get('remoteDeltaMax', 5.0))
+                        valid = True
+                    except:
+                        pass
+                    if not valid or remoteDeltaMax < 0.0 or remoteDeltaMax > 10.0 or remoteDeltaMax % 0.5 != 0:
                         errorDict = indigo.Dict()
                         errorDict['remoteDeltaMax'] = 'Remote Delta Max must be set between 0.0 and 10.0 (inclusive)'
                         errorDict['showAlertText'] = 'You must enter a valid maximum number of degrees to exceed the TRV Heat Setpoint for the remote thermostat. It must be set between 0.0 and 10.0 (inclusive) and a multiple of 0.5.'
+                        return (False, valuesDict, errorDict)
+
+                    # Validate Remote Temperature Offset
+                    valid = False
+                    try:
+                        remoteTempOffset = float(valuesDict.get('remoteTempOffset', 0.0))
+                        valid = True
+                    except:
+                        pass
+                    if not valid or remoteTempOffset < -5.0 or remoteDeltaMax > 5.0:
+                        errorDict = indigo.Dict()
+                        errorDict['remoteTempOffset'] = 'Remote Temperature Offset must be set between -5.0 and 5.0 (inclusive)'
+                        errorDict['showAlertText'] = 'You must enter a valid Remote Temperature Offset. It must be set between -5.0 and 5.0 (inclusive).'
                         return (False, valuesDict, errorDict)
 
             # Validate CSV Fields
@@ -2527,7 +2552,6 @@ class Plugin(indigo.PluginBase):
 
         self.myArray = []
         for dev in indigo.devices.iter("indigo.thermostat"):
-        # for dev in indigo.devices:
             if dev.deviceTypeId != 'trvController':
                 self.myArray.append((dev.id, dev.name))
         return sorted(self.myArray, key=lambda devname: devname[1].lower())   # sort by device name
@@ -2539,34 +2563,24 @@ class Plugin(indigo.PluginBase):
         trvDevId = int(valuesDict.get('trvDevId', 0))
         if trvDevId != 0:
             trvDev = indigo.devices[trvDevId]
-            trvModel = trvDev.model
-            if trvModel in self.globals['supportedTrvModels']:
+            trv_model_name = trvDev.model
+            if trv_model_name in self.globals['supportedTrvModels']:
                 pass
             else:
-                trvModel = 'Unknown TRV Model'
+                trv_model_name = 'Unknown TRV Model'
 
-            trvModelProperties = self.globals['supportedTrvModels'][trvModel]
+            trvModelProperties = self.globals['supportedTrvModels'][trv_model_name]
 
-
-            supportsWakeup = bool(trvModelProperties[TRV_MODEL_SUPPORTS_WAKEUP])
-            supportsTemperatureReporting = bool(trvModelProperties[TRV_MODEL_SUPPORTS_TEMPERATURE_REPORTING])
-            supportsHvacOnOff = bool(trvModelProperties[TRV_MODEL_SUPPORTS_HVAC_ON_OFF])
-            supportsValveControl = bool(trvModelProperties[TRV_MODEL_SUPPORTS_VALVE_CONTROL])
-            supportsManualSetpoint = bool(trvModelProperties[TRV_MODEL_SUPPORTS_MANUAL_SETPOINT])
-            setpointHeatMinimum = int(trvModelProperties[TRV_MODEL_SETPOINT_HEAT_MINIMUM])
-            setpointHeatMaximum = int(trvModelProperties[TRV_MODEL_SETPOINT_HEAT_MAXIMUM])
-
-            valuesDict['supportedModel'] = trvModel
-            valuesDict['supportsWakeup'] = supportsWakeup
-            valuesDict['supportsTemperatureReporting'] = supportsTemperatureReporting
-            valuesDict['supportsHvacOnOff'] = supportsHvacOnOff
-            valuesDict['supportsValveControl'] = supportsValveControl
-            valuesDict['supportsManualSetpoint'] = supportsManualSetpoint
-            valuesDict['setpointHeatMinimum'] = setpointHeatMinimum
-            valuesDict['setpointHeatMaximum'] = setpointHeatMaximum
+            valuesDict['supportedModel'] = trv_model_name
+            valuesDict['supportsWakeup'] = self.globals['supportedTrvModels'][trv_model_name]['supportsWakeup']
+            valuesDict['supportsTemperatureReporting'] = self.globals['supportedTrvModels'][trv_model_name]['supportsTemperatureReporting']
+            valuesDict['supportsHvacOnOff'] = self.globals['supportedTrvModels'][trv_model_name]['supportsHvacOnOff']
+            valuesDict['supportsValveControl'] = self.globals['supportedTrvModels'][trv_model_name]['supportsValveControl']
+            valuesDict['supportsManualSetpoint'] = self.globals['supportedTrvModels'][trv_model_name]['supportsManualSetpoint']
+            valuesDict['setpointHeatMinimum'] = self.globals['supportedTrvModels'][trv_model_name]['setpointHeatMinimum']
+            valuesDict['setpointHeatMaximum'] = self.globals['supportedTrvModels'][trv_model_name]['setpointHeatMaximum']
 
         return valuesDict
-
 
     def remoteThermostatDevices(self, filter="", valuesDict=None, typeId="", targetId=0):
 
@@ -2575,7 +2589,7 @@ class Plugin(indigo.PluginBase):
         self.myArray = []
         for dev in indigo.devices.iter():
             if dev.deviceTypeId != 'trvController':
-                if dev.subModel == 'Temperature' or dev.subModel == 'Temperature 1' or dev.subModel == 'Thermostat':
+                if dev.subModel == 'Temperature' or dev.subModel == 'Temperature 1' or dev.subModel == 'Thermostat' or dev.deviceTypeId == 'hueMotionTemperatureSensor':
                     self.myArray.append((dev.id, dev.name))
                 else:
                     try:
@@ -2589,6 +2603,7 @@ class Plugin(indigo.PluginBase):
                             except (AttributeError, KeyError, ValueError):
                                 continue
                     self.myArray.append((dev.id, dev.name))
+
 
         return sorted(self.myArray, key=lambda devname: devname[1].lower())   # sort by device name
 
@@ -2787,12 +2802,16 @@ class Plugin(indigo.PluginBase):
             self.globals['trvc'][trvCtlrDevId]['pollingSeconds'] = 0.0
 
             self.globals['trvc'][trvCtlrDevId]['valveAssistance'] = False
+            self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff'] = False
             if self.globals['trvc'][trvCtlrDevId]['trvDevId'] != 0:
                 if trvcDev.address != indigo.devices[self.globals['trvc'][trvCtlrDevId]['trvDevId']].address:
                     self.pluginProps = trvcDev.pluginProps
                     self.pluginProps["address"] = indigo.devices[self.globals['trvc'][trvCtlrDevId]['trvDevId']].address
                     trvcDev.replacePluginPropsOnServer(self.pluginProps)
 
+                self.globals['trvc'][trvCtlrDevId]['supportsHvacOnOff'] = bool(trvcDev.pluginProps.get('supportsHvacOnOff', False))
+                if self.globals['trvc'][trvCtlrDevId]['supportsHvacOnOff']:
+                    self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff'] =  bool(trvcDev.pluginProps.get('enableTrvOnOff', False))
                 self.globals['trvc'][trvCtlrDevId]['trvSupportsManualSetpoint'] =  bool(trvcDev.pluginProps.get('supportsManualSetpoint', False))
                 self.globals['trvc'][trvCtlrDevId]['trvSupportsTemperatureReporting'] =  bool(trvcDev.pluginProps.get('supportsTemperatureReporting', False))
                 self.generalLogger.debug(u'TRV SUPPORTS TEMPERATURE REPORTING: \'{}\' = {} '.format(indigo.devices[self.globals['trvc'][trvCtlrDevId]['trvDevId']].name , self.globals['trvc'][trvCtlrDevId]['trvSupportsTemperatureReporting']))   
@@ -3052,8 +3071,12 @@ class Plugin(indigo.PluginBase):
             self.globals['trvc'][trvCtlrDevId]['heatSetpointAdvance'] = 0
             self.globals['trvc'][trvCtlrDevId]['heatSetpointBoost'] = 0
 
-            self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] = HVAC_HEAT
-            self.globals['trvc'][trvCtlrDevId]['hvacOperationMode'] = HVAC_HEAT
+            if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff']:
+                self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] = HVAC_OFF
+                self.globals['trvc'][trvCtlrDevId]['hvacOperationMode'] = HVAC_OFF
+            else:
+                self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] = HVAC_HEAT
+                self.globals['trvc'][trvCtlrDevId]['hvacOperationMode'] = HVAC_HEAT
 
             self.globals['trvc'][trvCtlrDevId]['controllerMode'] = CONTROLLER_MODE_INITIALISATION
 
@@ -3065,6 +3088,7 @@ class Plugin(indigo.PluginBase):
                 self.globals['trvc'][trvCtlrDevId]['temperatureTrv'] = 0.0
 
             self.globals['trvc'][trvCtlrDevId]['temperatureRemote'] = float(0.0)
+            self.globals['trvc'][trvCtlrDevId]['temperatureRemotePreOffset'] = float(0.0)
             if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] != 0:
                 try:
                     self.globals['trvc'][trvCtlrDevId]['temperatureRemote'] = float(indigo.devices[int(self.globals['trvc'][trvCtlrDevId]['remoteDevId'])].temperatures[0])  # e.g. Radiator Thermostat (HRT4-ZW)
@@ -3088,8 +3112,13 @@ class Plugin(indigo.PluginBase):
                 self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl'] = False
                 self.globals['trvc'][trvCtlrDevId]['temperature'] = float(self.globals['trvc'][trvCtlrDevId]['temperatureTrv'])
             else:
+                self.globals['trvc'][trvCtlrDevId]['remoteTempOffset'] = float(trvcDev.pluginProps.get('remoteTempOffset', 0.0))
+                self.globals['trvc'][trvCtlrDevId]['temperatureRemotePreOffset'] = float(self.globals['trvc'][trvCtlrDevId]['temperatureRemote'])                
+                self.globals['trvc'][trvCtlrDevId]['temperatureRemote'] = float(self.globals['trvc'][trvCtlrDevId]['temperatureRemote']) + float(self.globals['trvc'][trvCtlrDevId]['remoteTempOffset'])                 
                 self.globals['trvc'][trvCtlrDevId]['temperature'] = float(self.globals['trvc'][trvCtlrDevId]['temperatureRemote'])
                 self.globals['trvc'][trvCtlrDevId]['remoteDeltaMax'] = float(trvcDev.pluginProps.get('remoteDeltaMax', 5.0))
+
+
                 if self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
                     try:
                         setpoint = float(indigo.devices[int(self.globals['trvc'][trvCtlrDevId]['remoteDevId'])].heatSetpoint)
@@ -3205,6 +3234,7 @@ class Plugin(indigo.PluginBase):
                     {'key': 'setpointHeatRemote', 'value': self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote']},
                     {'key': 'temperature', 'value': self.globals['trvc'][trvCtlrDevId]['temperature']},
                     {'key': 'temperatureRemote', 'value': self.globals['trvc'][trvCtlrDevId]['temperatureRemote']},
+                    {'key': 'temperatureRemotePreOffset', 'value': self.globals['trvc'][trvCtlrDevId]['temperatureRemotePreOffset']},
                     {'key': 'temperatureTrv', 'value': self.globals['trvc'][trvCtlrDevId]['temperatureTrv']},
 
                     {'key': 'advanceActive', 'value': self.globals['trvc'][trvCtlrDevId]['advanceActive']},
