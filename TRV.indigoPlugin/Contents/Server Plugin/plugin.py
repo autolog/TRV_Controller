@@ -494,8 +494,12 @@ class Plugin(indigo.PluginBase):
                         trvcDev = indigo.devices[self.globals['zwave']['addressToDevice'][address]['trvcId']]  # TRV Controller
                         trvCtlrDevId = trvcDev.id
                         if devType == TRV:
-                            self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeTrv'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')            
-                            self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountTrv'] += 1
+                            self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeTrv'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')
+                            if 'zwaveReceivedCountTrv' in self.globals['trvc'][trvCtlrDevId]:           
+                                self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountTrv'] += 1
+                            else:
+                                self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountTrv'] = 1
+
                             self.globals['trvc'][trvCtlrDevId]['zwaveLastReceivedCommandTrv'] = zwaveCommandClass
 
                             if self.globals['trvc'][trvCtlrDevId]['zwaveWakeupIntervalTrv'] > 0:
@@ -514,8 +518,11 @@ class Plugin(indigo.PluginBase):
                                 zwaveReport = zwaveReport + u"\nZZ  TRV Z-WAVE > Next wakeup missed alert in {} seconds".format(nextWakeupMissedSeconds)
 
                         else:  # Must be Remote
-                            self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeRemote'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')            
-                            self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountRemote'] += 1
+                            self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeRemote'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')
+                            if 'zwaveReceivedCountRemote' in self.globals['trvc'][trvCtlrDevId]:            
+                                self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountRemote'] += 1
+                            else:
+                                self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountRemote'] = 1
                             self.globals['trvc'][trvCtlrDevId]['zwaveLastReceivedCommandRemote'] = zwaveCommandClass
 
                             if self.globals['trvc'][trvCtlrDevId]['zwaveWakeupIntervalRemote'] > 0:
@@ -652,11 +659,18 @@ class Plugin(indigo.PluginBase):
                         zwaveReport = zwaveReport + sendTranslation
                         if devType == TRV or devType == VALVE:
                             self.globals['trvc'][trvCtlrDevId]['zwaveEventSentDateTimeTrv'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')            
-                            self.globals['trvc'][trvCtlrDevId]['zwaveSentCountTrv'] += 1
+                            if 'zwaveSentCountTrv' in self.globals['trvc'][trvCtlrDevId]:
+                                self.globals['trvc'][trvCtlrDevId]['zwaveSentCountTrv'] += 1
+                            else:
+                                self.globals['trvc'][trvCtlrDevId]['zwaveSentCountTrv'] = 1
+
                             self.globals['trvc'][trvCtlrDevId]['zwaveLastSentCommandTrv'] = zwaveCommandClass
                         else:  # Must be Remote
-                            self.globals['trvc'][trvCtlrDevId]['zwaveEventSentDateTimeRemote'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')            
-                            self.globals['trvc'][trvCtlrDevId]['zwaveSentCountRemote'] += 1
+                            self.globals['trvc'][trvCtlrDevId]['zwaveEventSentDateTimeRemote'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')
+                            if 'zwaveSentCountRemote' in self.globals['trvc'][trvCtlrDevId]:            
+                                self.globals['trvc'][trvCtlrDevId]['zwaveSentCountRemote'] += 1
+                            else:
+                                self.globals['trvc'][trvCtlrDevId]['zwaveSentCountRemote'] = 1
                             self.globals['trvc'][trvCtlrDevId]['zwaveLastSentCommandRemote'] = zwaveCommandClass
                     else:
                         sendTranslation = u'\nZZ  TRV Z-WAVE > TRANSLATION: Address = {}, Length = {}, Class = {}, Verb = {}'.format(address, int(zwaveCommandLength,16), zwaveCommandClassUi, zwaveCommandVerbUi)
