@@ -63,6 +63,15 @@
 		<setpointHeatMinimum>6.0</setpointHeatMinimum>
 		<setpointHeatMaximum>28.0</setpointHeatMaximum>
 	</model>		
+	<model name="Thermostat (TF021)">
+		<supportsWakeup>false</supportsWakeup>
+		<supportsTemperatureReporting>true</supportsTemperatureReporting>
+		<supportsHvacOnOff>false</supportsHvacOnOff>
+		<supportsValveControl>false</supportsValveControl>
+		<supportsManualSetpoint>true</supportsManualSetpoint>
+		<setpointHeatMinimum>5.0</setpointHeatMinimum>
+		<setpointHeatMaximum>35.0</setpointHeatMaximum>
+	</model>		
 	<model name="Unknown TRV Model">
 		<supportsWakeup>false</supportsWakeup>
 		<supportsTemperatureReporting>false</supportsTemperatureReporting>
