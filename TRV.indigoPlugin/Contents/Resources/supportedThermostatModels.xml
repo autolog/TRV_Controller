@@ -65,7 +65,7 @@
 	</model>		
 	<model name="Thermostat (TF021)">
 		<supportsWakeup>false</supportsWakeup>
-		<supportsTemperatureReporting>true</supportsTemperatureReporting>
+		<supportsTemperatureReporting>false</supportsTemperatureReporting>
 		<supportsHvacOnOff>false</supportsHvacOnOff>
 		<supportsValveControl>false</supportsValveControl>
 		<supportsManualSetpoint>true</supportsManualSetpoint>
