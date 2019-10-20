@@ -2244,7 +2244,7 @@ class Plugin(indigo.PluginBase):
                         if (remoteDev.subModel == 'Temperature'
                             or remoteDev.subModel == 'Temperature 1'
                             or remoteDev.subModel == 'Thermostat'
-                            or remoteDev.subModel[0:7].lowercase() == 'sensor '
+                            or remoteDev.subModel[0:7].lower() == 'sensor '
                             or 'temperatureInput1' in remoteDev.states
                             or 'temperature' in remoteDev.states
                             or 'Temperature' in remoteDev.states
@@ -2608,7 +2608,7 @@ class Plugin(indigo.PluginBase):
         self.myArray = []
         for dev in indigo.devices.iter():
             if dev.deviceTypeId != 'trvController':
-                if dev.subModel == 'Temperature' or dev.subModel == 'Temperature 1' or dev.subModel == 'Thermostat' or dev.deviceTypeId == 'hueMotionTemperatureSensor' or dev.subModel[0:7].lowercase() == 'sensor ':
+                if dev.subModel == 'Temperature' or dev.subModel == 'Temperature 1' or dev.subModel == 'Thermostat' or dev.deviceTypeId == 'hueMotionTemperatureSensor' or (dev.model == 'Thermostat (TF021)' and dev.subModel[0:7].lower() == 'sensor '):
                     self.myArray.append((dev.id, dev.name))
                 else:
                     try:
@@ -2620,10 +2620,10 @@ class Plugin(indigo.PluginBase):
                             try:
                                 test = float(dev.states['Temperature'])  # e.g. Netatmo
                             except (AttributeError, KeyError, ValueError):
-                                try:
-                                    test = float(dev.states['sensorValue'])  # e.g. HeatIT TF021
-                                except (AttributeError, KeyError, ValueError):
-                                    continue
+                                # try:
+                                #     test = float(dev.states['sensorValue'])  # e.g. HeatIT TF021
+                                # except (AttributeError, KeyError, ValueError):
+                                continue
                     self.myArray.append((dev.id, dev.name))
 
         return sorted(self.myArray, key=lambda devname: devname[1].lower())   # sort by device name
