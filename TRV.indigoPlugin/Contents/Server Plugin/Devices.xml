@@ -246,25 +246,378 @@
                 <Label>SCHEDULING</Label>
             </Field>
 
-
-            <Field id="help-17" type="label" alwaysUseInDialogHeightCalc="true">
-                <Label>Confirm if scheduled heating is required and if so select up to four schedules and define the ON and OFF times and heat setpoints to be used by this device for the checked heating periods.</Label>
+            <Field id="scheduleMode" type="menu" defaultValue="1" alwaysUseInDialogHeightCalc="true">
+                <Label>Scheduling Mode:</Label>
+                <List>
+                    <Option value="0">Not Required</Option>
+                    <Option value="1">ON/OFF</Option>
+                    <Option value="2">By Setpoint Only</Option>
+                </List>
             </Field>
-            <Field id="schedule1Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+
+            <Field id="help-17" type="label" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="1">
+                <Label>Confirm if scheduled heating is required and if so select mode 'ON/OFF' or 'By setpoint Only'.</Label>
+            </Field>
+            <Field id="help-17b" type="label" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="1">
+                <Label>Select up to four schedules and define the ON and OFF times and heat setpoints to be used by this device for the enabled schedules.</Label>
+            </Field>
+            <Field id="help-17c" type="label" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Select up to ten schedules and define the time and heat setpoint to be used by this device for each enabled schedule.</Label>
+            </Field>
+
+            <Field id="schedule1Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2">
                 <Label>Heating Schedule One:</Label>
                 <Description>Check to enable and set options.</Description>
             </Field>
-            <Field id="schedule1TimeOn" type="textfield" defaultValue="07:00" visibleBindingId="schedule1Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule1TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule1Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
                 <Label>ON Time:</Label>
             </Field>
-            <Field id="schedule1TimeOff" type="textfield" defaultValue="10:00" visibleBindingId="schedule1Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule1TimeOff" type="textfield" defaultValue="00:00" enabledBindingId="schedule1Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1" alwaysUseInDialogHeightCalc="true">
                 <Label>OFF Time:</Label>
             </Field>
-            <Field id="schedule1SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="schedule1Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule1SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule1Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
                 <Label>Setpoint:</Label>
             </Field>
+            <Field id="schedule1ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule1Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule1Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
 
-            <Field id="schedule2Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+
+            <Field id="schedule2Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2">
+                <Label>Heating Schedule Two:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule2TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule2Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule2TimeOff" type="textfield" defaultValue="00:00" enabledBindingId="schedule2Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule2SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule2Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="schedule2ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule2Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule2Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
+
+
+            <Field id="schedule3Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2">
+                <Label>Heating Schedule Three:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule3TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule3Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule3TimeOff" type="textfield" defaultValue="00:00" enabledBindingId="schedule3Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule3SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule3Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="schedule3ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule3Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule3Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
+
+
+            <Field id="schedule4Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2">
+                <Label>Heating Schedule Four:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule4TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule4Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule4TimeOff" type="textfield" defaultValue="00:00" enabledBindingId="schedule4Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="schedule4SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule4Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="schedule4ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule4Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule4Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
+
+
+            <Field id="schedule5Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Five:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule5TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule5Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule5SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule5Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="schedule5ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule5Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule5Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
+
+
+            <Field id="schedule6Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Six:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule6TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule6Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule6SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule6Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="schedule6ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule6Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule6Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
+
+
+            <Field id="schedule7Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Seven:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule7TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule7Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule7SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule7Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="schedule7ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule7Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule7Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
+
+
+            <Field id="schedule8Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Eight:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule8TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule8Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule8SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule8Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="schedule8ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule8Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule8Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
+
+
+            <Field id="schedule9Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Nine:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule9TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule9Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule9SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule9Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="schedule9ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule9Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule9Separator" type="label" fontColor="blue" alignWithControl="true" enabledBindingId="schedule9Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
+
+            <Field id="schedule10Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Nine:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="schedule10TimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule10Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="schedule10SetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule10Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="schedule10ForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule10Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="schedule10Separator" type="label" fontColor="blue" alignWithControl="true" enabledBindingId="schedule10Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>---</Label>
+            </Field>
+
+
+
+
+
+
+<!-- 
+
+
+
+
+
+
+
+
+
+
+
+            <Field id="scheduleS2Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Two:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="scheduleS2TimeOn" type="textfield" defaultValue="08:00" visibleBindingId="scheduleS2Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Set Time:</Label>
+            </Field>
+            <Field id="scheduleS2SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="scheduleS2Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleS2ForceOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleS2Enabled" visibleBindingValue="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+
+            <Field id="scheduleS3Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Three:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="scheduleS3TimeOn" type="textfield" defaultValue="10:00" visibleBindingId="scheduleS3Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Set Time:</Label>
+            </Field>
+            <Field id="scheduleS3SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="scheduleS3Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleS3ForceOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleS3Enabled" visibleBindingValue="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+
+            <Field id="scheduleS4Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Four:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="scheduleS4TimeOn" type="textfield" defaultValue="12:00" visibleBindingId="scheduleS4Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Set Time:</Label>
+            </Field>
+            <Field id="scheduleS4SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="scheduleS4Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleS4ForceOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleS4Enabled" visibleBindingValue="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+
+            <Field id="scheduleS5Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Five:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="scheduleS5TimeOn" type="textfield" defaultValue="14:00" visibleBindingId="scheduleS5Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Set Time:</Label>
+            </Field>
+            <Field id="scheduleS5SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="scheduleS5Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleS5ForceOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleS5Enabled" visibleBindingValue="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+
+            <Field id="scheduleS6Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Six:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="scheduleS6TimeOn" type="textfield" defaultValue="16:00" visibleBindingId="scheduleS6Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Set Time:</Label>
+            </Field>
+            <Field id="scheduleS6SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="scheduleS6Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleS6ForceOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleS6Enabled" visibleBindingValue="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+
+            <Field id="scheduleS7Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Seven:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="scheduleS7TimeOn" type="textfield" defaultValue="18:00" visibleBindingId="scheduleS7Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Set Time:</Label>
+            </Field>
+            <Field id="scheduleS7SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="scheduleS7Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleS7ForceOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleS7Enabled" visibleBindingValue="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+
+            <Field id="scheduleS8Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Eight:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="scheduleS8TimeOn" type="textfield" defaultValue="20:00" visibleBindingId="scheduleS8Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Set Time:</Label>
+            </Field>
+            <Field id="scheduleS8SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="scheduleS8Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleS8ForceOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleS8Enabled" visibleBindingValue="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+
+            <Field id="scheduleS9Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Nine:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="scheduleS9TimeOn" type="textfield" defaultValue="22:00" visibleBindingId="scheduleS9Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Set Time:</Label>
+            </Field>
+            <Field id="scheduleS9SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="scheduleS9Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleS9ForceOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleS9Enabled" visibleBindingValue="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+
+            <Field id="scheduleS10Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Ten:</Label>
+                <Description>Check to enable and set options.</Description>
+            </Field>
+            <Field id="scheduleS10TimeOn" type="textfield" defaultValue="23:00" visibleBindingId="scheduleS10Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Set Time:</Label>
+            </Field>
+            <Field id="scheduleS10SetpointHeat" type="textfield" defaultValue="21" visibleBindingId="scheduleS10Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleS10ForceOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleS10Enabled" visibleBindingValue="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+
+            <Field id="schedule2Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="1">
                 <Label>Heating Schedule Two:</Label>
                 <Description>Check to enable and set options.</Description>
             </Field>
@@ -278,7 +631,7 @@
                 <Label>Setpoint:</Label>
             </Field>
 
-            <Field id="schedule3Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule3Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="1">
                 <Label>Heating Schedule Three:</Label>
                 <Description>Check to enable and set options.</Description>
             </Field>
@@ -292,7 +645,7 @@
                 <Label>Setpoint:</Label>
             </Field>
 
-            <Field id="schedule4Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="false">
+            <Field id="schedule4Enabled" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="false" visibleBindingId="scheduleMode" visibleBindingValue="1">
                 <Label>Heating Schedule Four:</Label>
                 <Description>Check to enable and set options.</Description>
             </Field>
@@ -305,7 +658,7 @@
             <Field id="schedule4SetpointHeat" type="textfield" defaultValue="22" visibleBindingId="schedule4Enabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
                 <Label>Setpoint:</Label>
             </Field>
-
+ -->
         </ConfigUI>
 
         <States>
@@ -406,6 +759,22 @@
                 <ControlPageLabel>Boost Time Start</ControlPageLabel>
             </State>
 
+            <State id="callingForHeat">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Calling For Heat</TriggerLabel>
+                <ControlPageLabel>Calling For Heat</ControlPageLabel>
+            </State>
+            <State id="callingForHeatTrueSSM">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Calling For Heat True MSM</TriggerLabel>
+                <ControlPageLabel>Calling For Heat True MSM</ControlPageLabel>
+            </State>
+            <State id="callingForHeatFalseSSM">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Calling For Heat False MSM</TriggerLabel>
+                <ControlPageLabel>Calling For Heat False MSM</ControlPageLabel>
+            </State>
+
             <State id="controllerMode">
                 <ValueType>Number</ValueType>
                 <TriggerLabel>TRV COntroller Mode Changed</TriggerLabel>
@@ -484,6 +853,12 @@
                 <ControlPageLabel>Schedule One Enabled</ControlPageLabel>
             </State>
 
+            <State id="schedule1ForceOff">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule One Force Off Changed</TriggerLabel>
+                <ControlPageLabel>Schedule One Force Off</ControlPageLabel>
+            </State>
+
             <State id="schedule1TimeOn">
                 <ValueType>String</ValueType>
                 <TriggerLabel>Schedule One On Time Changed</TriggerLabel>
@@ -504,8 +879,8 @@
 
             <State id="schedule1TimeUi">
                 <ValueType>String</ValueType>
-                <TriggerLabel>Schedule One Times Changed</TriggerLabel>
-                <ControlPageLabel>Schedule One Times</ControlPageLabel>
+                <TriggerLabel>Schedule One Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule One Time</ControlPageLabel>
             </State>
 
             <State id="schedule2Active">
@@ -518,6 +893,12 @@
                 <ValueType boolType="TrueFalse">Boolean</ValueType>
                 <TriggerLabel>Schedule Two Enabled Changed</TriggerLabel>
                 <ControlPageLabel>Schedule Two Enabled</ControlPageLabel>
+            </State>
+
+            <State id="schedule2ForceOff">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Two Force Off Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Two Force Off</ControlPageLabel>
             </State>
 
             <State id="schedule2TimeOn">
@@ -540,8 +921,8 @@
 
             <State id="schedule2TimeUi">
                 <ValueType>String</ValueType>
-                <TriggerLabel>Schedule Two Times Changed</TriggerLabel>
-                <ControlPageLabel>Schedule Two Times</ControlPageLabel>
+                <TriggerLabel>Schedule Two Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Two Time</ControlPageLabel>
             </State>
 
             <State id="schedule3Active">
@@ -554,6 +935,12 @@
                 <ValueType boolType="TrueFalse">Boolean</ValueType>
                 <TriggerLabel>Schedule Three Enabled Changed</TriggerLabel>
                 <ControlPageLabel>Schedule Three Enabled</ControlPageLabel>
+            </State>
+
+            <State id="schedule3ForceOff">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Three Force Off Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Three Force Off</ControlPageLabel>
             </State>
 
             <State id="schedule3TimeOn">
@@ -576,8 +963,8 @@
 
             <State id="schedule3TimeUi">
                 <ValueType>String</ValueType>
-                <TriggerLabel>Schedule Three Times Changed</TriggerLabel>
-                <ControlPageLabel>Schedule Three Times</ControlPageLabel>
+                <TriggerLabel>Schedule Three Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Three Time</ControlPageLabel>
             </State>
 
             <State id="schedule4Active">
@@ -590,6 +977,12 @@
                 <ValueType boolType="TrueFalse">Boolean</ValueType>
                 <TriggerLabel>Schedule Four Enabled Changed</TriggerLabel>
                 <ControlPageLabel>Schedule Four Enabled</ControlPageLabel>
+            </State>
+
+            <State id="schedule4ForceOff">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Four Force Off Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Four Force Off</ControlPageLabel>
             </State>
 
             <State id="schedule4TimeOn">
@@ -612,8 +1005,44 @@
 
             <State id="schedule4TimeUi">
                 <ValueType>String</ValueType>
-                <TriggerLabel>Schedule Four Times Changed</TriggerLabel>
-                <ControlPageLabel>Schedule Four Times</ControlPageLabel>
+                <TriggerLabel>Schedule Four Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Four Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule5Active">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Five Active Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Five Active</ControlPageLabel>
+            </State>
+
+            <State id="schedule5Enabled">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Five Enabled Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Five Enabled</ControlPageLabel>
+            </State>
+
+            <State id="schedule5ForceOff">
+                <ValueType boolType="TrueFalse">Boolean</ValueType>
+                <TriggerLabel>Schedule Five Force Off Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Five Force Off</ControlPageLabel>
+            </State>
+
+            <State id="schedule5TimeOn">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Five On Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Five On Time</ControlPageLabel>
+            </State>
+
+            <State id="schedule5SetpointHeat">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Five Setpoint Heat Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Five Setpoint Heat</ControlPageLabel>
+            </State>
+
+            <State id="schedule5TimeUi">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Schedule Five Time Changed</TriggerLabel>
+                <ControlPageLabel>Schedule Five Time</ControlPageLabel>
             </State>
 
             <State id="setpointHeatOnDefault">

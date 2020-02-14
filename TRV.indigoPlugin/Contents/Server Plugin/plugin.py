@@ -35,7 +35,7 @@ def secondsFromHHMM(hhmm):
     seconds = (hh * 3600) + (mm * 60) 
     return seconds
 
-# Calculate number of seconds until 15 minutes after next midnight 
+# Calculate number of seconds until five minutes after next midnight 
 def calculateSecondsUntilSchedulesRestated():
 
     tomorrow = datetime.datetime.now() + datetime.timedelta(1)
@@ -45,9 +45,9 @@ def calculateSecondsUntilSchedulesRestated():
 
     secondsSinceMidnight = (24 * 60 * 60) - secondsToMidnight
 
-    secondsInFifteenMinutes = (5 * 60)  # 5 minutes in seconds
+    secondsInFiveMinutes = (5 * 60)  # 5 minutes in seconds
 
-    secondsUntilSchedulesRestated = secondsToMidnight + secondsInFifteenMinutes  # Calculate number of seconds until 5 minutes after next midnight
+    secondsUntilSchedulesRestated = secondsToMidnight + secondsInFiveMinutes  # Calculate number of seconds until 5 minutes after next midnight
 
     # secondsUntilSchedulesRestated = 60  # TESTING = 1 Minute
     return secondsUntilSchedulesRestated
@@ -120,9 +120,6 @@ class Plugin(indigo.PluginBase):
          # Initialise dictionary to store internal details about heating (Boiler) devices and variables
         self.globals['heaterDevices'] = dict()
         self.globals['heaterVariables'] = dict()
-
-        # Initialise dictionary to store lime protection details
-        self.globals['limeProtection'] = dict()
 
         # Initialise dictionary to store message queues
         self.globals['queues'] = dict()
@@ -226,11 +223,6 @@ class Plugin(indigo.PluginBase):
 
         self.validateActionFlag = dict()
 
-        self.globals['limeProtection'] = dict()
-        self.globals['limeProtection']['Requested'] = False
-        self.globals['limeProtection']['Active'] = False
-        self.globals['limeProtection']['ThermostatList'] = None
-
         try: 
 
             secondsUntilSchedulesRestated = calculateSecondsUntilSchedulesRestated()
@@ -283,10 +275,6 @@ class Plugin(indigo.PluginBase):
         prefsConfigUiValues = self.pluginPrefs
         if "trvVariableFolderName" not in prefsConfigUiValues:
             prefsConfigUiValues["trvVariableFolderName"] = 'TRV'
-        if "limeProtectionEnabled" not in prefsConfigUiValues:
-            prefsConfigUiValues["limeProtectionEnabled"] = False
-        if "scheduleLimeProtectionId" not in prefsConfigUiValues or prefsConfigUiValues["scheduleLimeProtectionId"] == '':
-            prefsConfigUiValues["scheduleLimeProtectionId"] = int(0)  # No schedule defined
         if "disableHeatSourceDeviceListFilter" not in prefsConfigUiValues:
             prefsConfigUiValues["disableHeatSourceDeviceListFilter"] = False
 
@@ -436,6 +424,14 @@ class Plugin(indigo.PluginBase):
                 deviceType = 'Remote Thermostat device'
                 lastWakeupTime = self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeRemote']
 
+            if not indigo.devices[trvCtlrDevId].enabled:
+                self.generalLogger.error(u'Z-Wave wakeup check cancelled for disabled Controller \'{}\' and associated {} \'{}\'. Last Z-wave command received: {}'.format(indigo.devices[trvCtlrDevId].name, deviceType, indigo.devices[devId].name, lastWakeupTime))
+                return
+
+            if not indigo.devices[devId].enabled:
+                self.generalLogger.error(u'Z-Wave wakeup check cancelled for disabled {} \'{}\', controlled by \'{}\'. Last Z-wave command received: {}'.format(deviceType, indigo.devices[devId].name, indigo.devices[trvCtlrDevId].name, lastWakeupTime))
+                return
+
             indigo.devices[trvCtlrDevId].updateStateImageOnServer(indigo.kStateImageSel.TimerOn)
 
             self.generalLogger.error(u'Z-Wave wakeup missed for {} \'{}\', controlled by \'{}\'. Last Z-wave command received: {}'.format(deviceType, indigo.devices[devId].name, indigo.devices[trvCtlrDevId].name, lastWakeupTime))
@@ -494,12 +490,12 @@ class Plugin(indigo.PluginBase):
                         trvcDev = indigo.devices[self.globals['zwave']['addressToDevice'][address]['trvcId']]  # TRV Controller
                         trvCtlrDevId = trvcDev.id
                         if devType == TRV:
-                            self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeTrv'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')
+                            self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeTrv'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')            
                             if 'zwaveReceivedCountTrv' in self.globals['trvc'][trvCtlrDevId]:           
                                 self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountTrv'] += 1
                             else:
                                 self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountTrv'] = 1
-
+                            
                             self.globals['trvc'][trvCtlrDevId]['zwaveLastReceivedCommandTrv'] = zwaveCommandClass
 
                             if self.globals['trvc'][trvCtlrDevId]['zwaveWakeupIntervalTrv'] > 0:
@@ -518,7 +514,7 @@ class Plugin(indigo.PluginBase):
                                 zwaveReport = zwaveReport + u"\nZZ  TRV Z-WAVE > Next wakeup missed alert in {} seconds".format(nextWakeupMissedSeconds)
 
                         else:  # Must be Remote
-                            self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeRemote'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')
+                            self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeRemote'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')            
                             if 'zwaveReceivedCountRemote' in self.globals['trvc'][trvCtlrDevId]:            
                                 self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountRemote'] += 1
                             else:
@@ -663,10 +659,10 @@ class Plugin(indigo.PluginBase):
                                 self.globals['trvc'][trvCtlrDevId]['zwaveSentCountTrv'] += 1
                             else:
                                 self.globals['trvc'][trvCtlrDevId]['zwaveSentCountTrv'] = 1
-
+                                
                             self.globals['trvc'][trvCtlrDevId]['zwaveLastSentCommandTrv'] = zwaveCommandClass
                         else:  # Must be Remote
-                            self.globals['trvc'][trvCtlrDevId]['zwaveEventSentDateTimeRemote'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')
+                            self.globals['trvc'][trvCtlrDevId]['zwaveEventSentDateTimeRemote'] = self.currentTime.strftime('%Y-%m-%d %H:%M:%S')            
                             if 'zwaveSentCountRemote' in self.globals['trvc'][trvCtlrDevId]:            
                                 self.globals['trvc'][trvCtlrDevId]['zwaveSentCountRemote'] += 1
                             else:
@@ -993,7 +989,7 @@ class Plugin(indigo.PluginBase):
                                     self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'] = newDev.batteryLevel
                                     updateRequested = True
                                     updateList[UPDATE_TRV_BATTERY_LEVEL] = newDev.batteryLevel
-                                    updateLog[UPDATE_TRV_BATTERY_LEVEL] = u'TRV Battery Level updated from {} to {} [Internal store = \'{}\']'.format(origDev.batteryLevel, newDev.batteryLevel, self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'])
+                                    updateLog[UPDATE_TRV_BATTERY_LEVEL] = u'TRV Battery Level updated from {} to {} [Internal store was = \'{}\']'.format(origDev.batteryLevel, newDev.batteryLevel, self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'])
 
                             if self.globals['trvc'][trvCtlrDevId]['trvSupportsTemperatureReporting']:
                                 if (float(origDev.temperatures[0]) != float(newDev.temperatures[0])) or (self.globals['trvc'][trvCtlrDevId]['temperatureTrv'] != float(newDev.temperatures[0])):
@@ -1001,7 +997,7 @@ class Plugin(indigo.PluginBase):
                                     newTemp = float(newDev.temperatures[0])
                                     updateRequested = True
                                     updateList[UPDATE_TRV_TEMPERATURE] = newTemp
-                                    updateLog[UPDATE_TRV_TEMPERATURE] = u'Temperature updated from {} to {} [Internal store = \'{}\']'.format(origTemp, newTemp, self.globals['trvc'][trvCtlrDevId]['temperatureTrv'])
+                                    updateLog[UPDATE_TRV_TEMPERATURE] = u'Temperature updated from {} to {} [Internal store was = \'{}\']'.format(origTemp, newTemp, self.globals['trvc'][trvCtlrDevId]['temperatureTrv'])
 
                                     if self.globals['trvc'][trvCtlrDevId]['updateCsvFile']:
                                         if self.globals['trvc'][trvCtlrDevId]['updateAllCsvFiles']:
@@ -1019,9 +1015,9 @@ class Plugin(indigo.PluginBase):
                                 updateRequested = True
                                 updateList[UPDATE_TRV_HVAC_OPERATION_MODE] = hvacMode
                                 if newDev.hvacMode == hvacMode:
-                                    updateLog[UPDATE_TRV_HVAC_OPERATION_MODE] = u'TRV HVAC Operation Mode updated from \'{}\' to \'{}\' [Internal store = \'{}\']'.format(HVAC_TRANSLATION[origDev.hvacMode], HVAC_TRANSLATION[newDev.hvacMode], HVAC_TRANSLATION[int(self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'])])
+                                    updateLog[UPDATE_TRV_HVAC_OPERATION_MODE] = u'TRV HVAC Operation Mode updated from \'{}\' to \'{}\' [Internal store was = \'{}\']'.format(HVAC_TRANSLATION[origDev.hvacMode], HVAC_TRANSLATION[newDev.hvacMode], HVAC_TRANSLATION[int(self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'])])
                                 else:
-                                    updateLog[UPDATE_TRV_HVAC_OPERATION_MODE] = u'TRV HVAC Operation Mode update from \'{}\' to \'{}\', overridden and reset to \'{}\' [Internal store = \'{}\']'.format(HVAC_TRANSLATION[origDev.hvacMode], HVAC_TRANSLATION[newDev.hvacMode], HVAC_TRANSLATION[hvacMode], HVAC_TRANSLATION[self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv']])
+                                    updateLog[UPDATE_TRV_HVAC_OPERATION_MODE] = u'TRV HVAC Operation Mode update from \'{}\' to \'{}\', overridden and reset to \'{}\' [Internal store was = \'{}\']'.format(HVAC_TRANSLATION[origDev.hvacMode], HVAC_TRANSLATION[newDev.hvacMode], HVAC_TRANSLATION[hvacMode], HVAC_TRANSLATION[self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv']])
 
                             if newDev.model == 'Thermostat (Spirit)':
                                 if 'zwaveHvacOperationModeID' in newDev.states:
@@ -1054,10 +1050,10 @@ class Plugin(indigo.PluginBase):
                                 updateRequested = True
                                 if self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_HARDWARE:
                                     updateList[UPDATE_TRV_HEAT_SETPOINT_FROM_DEVICE] = newDev.heatSetpoint
-                                    updateLog[UPDATE_TRV_HEAT_SETPOINT_FROM_DEVICE] = u'TRV Heat Setpoint changed on device from {} to {} [Internal store = {}]'.format(origDev.heatSetpoint, newDev.heatSetpoint, self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
+                                    updateLog[UPDATE_TRV_HEAT_SETPOINT_FROM_DEVICE] = u'TRV Heat Setpoint changed on device from {} to {} [Internal store was = {}]'.format(origDev.heatSetpoint, newDev.heatSetpoint, self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
                                 else:
                                     updateList[UPDATE_TRV_HEAT_SETPOINT] = newDev.heatSetpoint
-                                    updateLog[UPDATE_TRV_HEAT_SETPOINT] = u'TRV Heat Setpoint changed from {} to {} [Internal store = {}]'.format(origDev.heatSetpoint, newDev.heatSetpoint, self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
+                                    updateLog[UPDATE_TRV_HEAT_SETPOINT] = u'TRV Heat Setpoint changed from {} to {} [Internal store was = {}]'.format(origDev.heatSetpoint, newDev.heatSetpoint, self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
 
                                 if self.globals['trvc'][trvCtlrDevId]['updateCsvFile']:
                                     if self.globals['trvc'][trvCtlrDevId]['updateAllCsvFiles']:
@@ -1071,7 +1067,7 @@ class Plugin(indigo.PluginBase):
                                 if int(origDev.brightness) != int(newDev.brightness) or int(self.globals['trvc'][trvCtlrDevId]['valvePercentageOpen']) != int(newDev.brightness):
                                     updateRequested = True
                                     updateList[UPDATE_CONTROLLER_VALVE_PERCENTAGE] = int(newDev.brightness)
-                                    updateLog[UPDATE_ZWAVE_HVAC_OPERATION_MODE_ID] = u'Valve Percentage Open updated from \'{}\' to \'{}\' [Internal store = {}]'.format(origDev.brightness, newDev.brightness, self.globals['trvc'][trvCtlrDevId]['valvePercentageOpen'])
+                                    updateLog[UPDATE_ZWAVE_HVAC_OPERATION_MODE_ID] = u'Valve Percentage Open updated from \'{}\' to \'{}\' [Internal store was = {}]'.format(origDev.brightness, newDev.brightness, self.globals['trvc'][trvCtlrDevId]['valvePercentageOpen'])
                                     if self.globals['trvc'][trvCtlrDevId]['updateCsvFile']:
                                         if self.globals['trvc'][trvCtlrDevId]['updateAllCsvFiles']:
                                             self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_LOW, 0, CMD_UPDATE_ALL_CSV_FILES, trvCtlrDevId, None])
@@ -1107,7 +1103,7 @@ class Plugin(indigo.PluginBase):
                                 self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'] = newDev.batteryLevel
                                 updateRequested = True
                                 updateList[UPDATE_REMOTE_BATTERY_LEVEL] = newDev.batteryLevel
-                                updateLog[UPDATE_REMOTE_BATTERY_LEVEL] = u'Remote Battery Level updated from {} to {} [Internal store = \'{}\']'.format(origDev.batteryLevel, newDev.batteryLevel, self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'])
+                                updateLog[UPDATE_REMOTE_BATTERY_LEVEL] = u'Remote Battery Level updated from {} to {} [Internal store was = \'{}\']'.format(origDev.batteryLevel, newDev.batteryLevel, self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'])
                         
                         if trvControllerDev.states['controllerMode'] != self.globals['trvc'][trvCtlrDevId]['controllerMode']:
                                 updateRequested = True
@@ -1161,7 +1157,7 @@ class Plugin(indigo.PluginBase):
                                 if float(newDev.heatSetpoint) != float(origDev.heatSetpoint):
                                     updateRequested = True
                                     updateList[UPDATE_REMOTE_HEAT_SETPOINT_FROM_DEVICE] = newDev.heatSetpoint
-                                    updateLog[UPDATE_REMOTE_HEAT_SETPOINT_FROM_DEVICE] = u'Remote Heat Setpoint changed from {} to {} [Internal store = {}]'.format(origDev.heatSetpoint, newDev.heatSetpoint, self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote'])
+                                    updateLog[UPDATE_REMOTE_HEAT_SETPOINT_FROM_DEVICE] = u'Remote Heat Setpoint changed from {} to {} [Internal store was = {}]'.format(origDev.heatSetpoint, newDev.heatSetpoint, self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote'])
                                     if self.globals['trvc'][trvCtlrDevId]['updateCsvFile']:
                                         if self.globals['trvc'][trvCtlrDevId]['updateAllCsvFiles']:
                                             self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_LOW, 0, CMD_UPDATE_ALL_CSV_FILES, trvCtlrDevId, None])
@@ -1620,18 +1616,6 @@ class Plugin(indigo.PluginBase):
         else:
             self.generalLogger.error(u'Unknown Action for TRV Controller \'{}\': Action \'{}\' Ignored'.format(dev.name, action.description))
 
-    # def processLimeProtection(self, pluginAction):
-
-    #     self.limeProtectionRequested = True
-
-    # def processCancelLimeProtection(self, pluginAction):
-
-    #     if not self.limeProtectionActive:
-    #         self.generalLogger.info("Lime Protection not active - Cancel request ignored.")
-    #         return
-
-    #     self.limeProtectionRequested = False
-
     def processTurnOn(self, pluginAction, dev):
 
         self.methodTracer.threaddebug(u'Main Plugin Method')
@@ -1950,7 +1934,7 @@ class Plugin(indigo.PluginBase):
             self.generalLogger.info(scheduleReport)
 
         except StandardError, err:
-            self.generalLogger.error(u'StandardError detected in TRV Plugin [processShowSchedule]. Line \'{}\' has error=\'{}\''.format(indigo.devices[devId].name, sys.exc_traceback.tb_lineno, err))   
+            self.generalLogger.error(u'StandardError detected in TRV Plugin [processShowSchedule]. Line \'{}\' has error=\'{}\''.format(indigo.devices[trvcDev.id].name, sys.exc_traceback.tb_lineno, err))   
 
     def processShowAllSchedules(self, pluginAction):
 
@@ -2148,7 +2132,7 @@ class Plugin(indigo.PluginBase):
                  pluginProps['heatingId'] = '-1'
             if not 'heatingVarId' in pluginProps:
                  pluginProps['heatingVarId'] = '-1'
-            if 'forceTrvOnOff' in pluginProps:
+            if 'forceTrvOnOff' in pluginProps and 'enableTrvOnOff' not in pluginProps:
                 pluginProps['enableTrvOnOff'] = pluginProps['forceTrvOnOff']
                 del pluginProps['forceTrvOnOff']
 
@@ -2620,11 +2604,12 @@ class Plugin(indigo.PluginBase):
                             try:
                                 test = float(dev.states['Temperature'])  # e.g. Netatmo
                             except (AttributeError, KeyError, ValueError):
-                                # try:
-                                #     test = float(dev.states['sensorValue'])  # e.g. HeatIT TF021
-                                # except (AttributeError, KeyError, ValueError):
-                                continue
+                                try:
+                                    test = float(dev.states['sensorValue'])  # e.g. HeatIT TF021 / MQTT VAlue Sensor Device
+                                except (AttributeError, KeyError, ValueError):
+                                    continue
                     self.myArray.append((dev.id, dev.name))
+
 
         return sorted(self.myArray, key=lambda devname: devname[1].lower())   # sort by device name
 
@@ -3214,10 +3199,12 @@ class Plugin(indigo.PluginBase):
             self.globals['trvc'][trvCtlrDevId]['zwavePendingRemoteSetpointSequence'] = 0
             self.globals['trvc'][trvCtlrDevId]['zwavePendingRemoteSetpointValue'] = 0.0
 
-            self.globals['trvc'][trvCtlrDevId]['processLimeProtection'] = 'off'
-            self.globals['trvc'][trvCtlrDevId]['limeProtectionCheckTime'] = 0
             self.globals['trvc'][trvCtlrDevId]['deltaIncreaseHeatSetpoint'] = 0.0
             self.globals['trvc'][trvCtlrDevId]['deltaIDecreaseHeatSetpoint'] = 0.0
+
+            self.globals['trvc'][trvCtlrDevId]['callingForHeat'] = False
+            self.globals['trvc'][trvCtlrDevId]['callingForHeatTrueSSM'] = 0  # Calling For Heat True Seconds Since Midnight
+            self.globals['trvc'][trvCtlrDevId]['callingForHeatFalseSSM'] = 0  # Calling For Heat False Seconds Since Midnight
 
             # Update device states
 
@@ -3280,6 +3267,10 @@ class Plugin(indigo.PluginBase):
                     {'key': 'extendScheduleOriginalTime', 'value': self.globals['trvc'][trvCtlrDevId]['extendScheduleOriginalTime']},
                     {'key': 'extendScheduleNewTime', 'value': self.globals['trvc'][trvCtlrDevId]['extendScheduleNewTime']},
                     {'key': 'extendLimitReached', 'value': self.globals['trvc'][trvCtlrDevId]['extendLimitReached']},
+
+                    {'key': 'callingForHeat', 'value': self.globals['trvc'][trvCtlrDevId]['callingForHeat']},
+                    {'key': 'callingForHeatTrueSSM', 'value': self.globals['trvc'][trvCtlrDevId]['callingForHeatTrueSSM']},
+                    {'key': 'callingForHeatFalseSSM', 'value': self.globals['trvc'][trvCtlrDevId]['callingForHeatFalseSSM']},
 
                     {'key': 'eventReceivedDateTimeRemote', 'value': self.globals['trvc'][trvCtlrDevId]['lastSuccessfulCommRemote']},
 
