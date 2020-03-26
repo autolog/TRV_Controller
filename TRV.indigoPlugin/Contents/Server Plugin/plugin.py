@@ -1578,6 +1578,14 @@ class Plugin(indigo.PluginBase):
         ###### DECREASE HEAT SETPOINT ######
         elif action.thermostatAction == indigo.kThermostatAction.DecreaseHeatSetpoint:
             newSetpoint = dev.heatSetpoint - action.actionValue
+
+            if newSetpoint < float(self.globals['trvc'][dev.id]['setpointHeatMinimum']):
+                if dev.heatSetpoint > float(self.globals['trvc'][dev.id]['setpointHeatMinimum']):
+                    newSetpoint = float(self.globals['trvc'][dev.id]['setpointHeatMinimum'])
+                else:
+                    self.generalLogger.info(u'TRV Controller  \'{}\' Minimum Heat Setpoint is \'{}\' - Decrease Heat Setpoint request ignored'.format(dev.name, self.globals['trvc'][dev.id]['setpointHeatMinimum']))
+                    return
+
             keyValueList = [
                     {'key': 'controllerMode', 'value': CONTROLLER_MODE_UI},
                     {'key': 'controllerModeUi', 'value':  CONTROLLER_MODE_TRANSLATION[CONTROLLER_MODE_UI]},
@@ -1588,6 +1596,14 @@ class Plugin(indigo.PluginBase):
         ###### INCREASE HEAT SETPOINT ######
         elif action.thermostatAction == indigo.kThermostatAction.IncreaseHeatSetpoint:
             newSetpoint = dev.heatSetpoint + action.actionValue
+
+            if newSetpoint > float(self.globals['trvc'][dev.id]['setpointHeatMaximum']):
+                if dev.heatSetpoint < float(self.globals['trvc'][dev.id]['setpointHeatMaximum']):
+                    newSetpoint = float(self.globals['trvc'][dev.id]['setpointHeatMaximum'])
+                else:
+                    self.generalLogger.info(u'TRV Controller  \'{}\' Maximum Heat Setpoint is \'{}\' - Increase Heat Setpoint request ignored'.format(dev.name, self.globals['trvc'][dev.id]['setpointHeatMaximum']))
+                    return
+
             keyValueList = [
                     {'key': 'controllerMode', 'value': CONTROLLER_MODE_UI},
                     {'key': 'controllerModeUi', 'value':  CONTROLLER_MODE_TRANSLATION[CONTROLLER_MODE_UI]},
@@ -2135,6 +2151,13 @@ class Plugin(indigo.PluginBase):
             if 'forceTrvOnOff' in pluginProps and 'enableTrvOnOff' not in pluginProps:
                 pluginProps['enableTrvOnOff'] = pluginProps['forceTrvOnOff']
                 del pluginProps['forceTrvOnOff']
+            if not 'overrideSetpointHeatMaximum' in pluginProps:
+                pluginProps['overrideSetpointHeatMaximum'] = False
+            if not 'overrideSetpointHeatMaximumValue' in pluginProps:
+                pluginProps['overrideSetpointHeatMaximumValue'] = 0.0
+            if not 'trvDeviceSetpointHeatMaximum' in pluginProps:
+                pluginProps['trvDeviceSetpointHeatMaximum'] = pluginProps['setpointHeatMaximum']
+
 
         except StandardError, err:
             self.generalLogger.error(u'StandardError detected in TRV Plugin [validateSchedule] for device \'{}\'. Line \'{}\' has error=\'{}\''.format(indigo.devices[devId].name, sys.exc_traceback.tb_lineno, err))   
@@ -2167,6 +2190,19 @@ class Plugin(indigo.PluginBase):
                 return (False, valuesDict, errorDict)
 
             self.trvThermostatDeviceSelected(valuesDict, typeId, devId)
+
+            overrideSetpointHeatMaximum = bool(valuesDict.get('overrideSetpointHeatMaximum', False))
+            if overrideSetpointHeatMaximum:
+                overrideSetpointHeatMaximumValue = int(valuesDict.get('overrideSetpointHeatMaximumValue', 0))
+                valuesDictTrvDeviceSetpointHeatMaximum = float(valuesDict['trvDeviceSetpointHeatMaximum'])
+                if overrideSetpointHeatMaximumValue > 21.0 and overrideSetpointHeatMaximumValue < valuesDictTrvDeviceSetpointHeatMaximum:
+                    valuesDict['setpointHeatMaximum'] = overrideSetpointHeatMaximumValue
+                else:
+                    errorDict = indigo.Dict()
+                    errorDict['overrideSetpointHeatMaximumValue'] = 'Override Setpoint Maximum Value is invalid'
+                    errorDict['showAlertText'] = 'Override Setpoint Maximum Value must be > 21 and less than TRV Maximum Settable Temperature [FULLY ON] value.'
+                    return (False, valuesDict, errorDict)
+
 
             # # Validate TRV Delta Maximum
             # trvDeltaMax = float(valuesDict.get('trvDeltaMax', 0.0))
@@ -2582,6 +2618,7 @@ class Plugin(indigo.PluginBase):
             valuesDict['supportsManualSetpoint'] = self.globals['supportedTrvModels'][trv_model_name]['supportsManualSetpoint']
             valuesDict['setpointHeatMinimum'] = self.globals['supportedTrvModels'][trv_model_name]['setpointHeatMinimum']
             valuesDict['setpointHeatMaximum'] = self.globals['supportedTrvModels'][trv_model_name]['setpointHeatMaximum']
+            valuesDict['trvDeviceSetpointHeatMaximum'] = self.globals['supportedTrvModels'][trv_model_name]['setpointHeatMaximum']
 
         return valuesDict
 

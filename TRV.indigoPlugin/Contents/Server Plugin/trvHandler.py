@@ -1402,7 +1402,7 @@ class ThreadTrvHandler(threading.Thread):
             checkTimeStr = checkTime.strftime("%Y-%m-%d %H:%M:%S.000000")
 
             cur = conn.cursor()
-            selectString = "SELECT ts, {} FROM device_history_{} WHERE ( ts >= '{}' AND  {} IS NOT NULL )".format(stateName, trvCtlrDevId, checkTimeStr, stateName)  # YYYY-MM-DD HH:MM:SS
+            selectString = "SELECT ts, {} FROM device_history_{} WHERE ( ts >= '{}' AND  {} IS NOT NULL) ORDER BY ts".format(stateName, trvCtlrDevId, checkTimeStr, stateName)  # YYYY-MM-DD HH:MM:SS
             cur.execute(selectString)
             rowCount = cur.rowcount
             rows = cur.fetchall()
