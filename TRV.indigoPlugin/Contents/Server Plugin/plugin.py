@@ -9,7 +9,6 @@ try:
 except ImportError:
     pass
 
-import csv
 import collections
 import datetime
 import logging
@@ -17,13 +16,12 @@ import platform
 import Queue
 import operator
 import threading
-import time
 import sys
 import xml.etree.ElementTree as ET
 
 from constants import *
 from trvHandler import ThreadTrvHandler
-# from polling import ThreadPolling
+from delayHandler import ThreadDelayHandler
 
 def convertListToHexStr(byteList):
     return ' '.join(["%02X" % byte for byte in byteList])
@@ -79,11 +77,13 @@ class Plugin(indigo.PluginBase):
         self.globals['debug'] = dict()
         self.globals['debug']['general'] = logging.INFO  # For general debugging of the main thread
         self.globals['debug']['trvHandler'] = logging.INFO  # For debugging TRV handler thread
+        self.globals['debug']['delayHandler'] = logging.INFO  # For debugging Delay handler thread
         self.globals['debug']['methodTrace'] = logging.INFO  # For displaying method invocations i.e. trace method
         self.globals['debug']['polling'] = logging.INFO  # For polling debugging
 
         self.globals['debug']['previousGeneral'] = logging.INFO  # For general debugging of the main thread
         self.globals['debug']['previousTrvHandler'] = logging.INFO  # For debugging TRV handler thread 
+        self.globals['debug']['previousDelayHandler'] = logging.INFO  # For debugging Delay handler thread 
         self.globals['debug']['previousMethodTrace'] = logging.INFO  # For displaying method invocations i.e. trace method
         self.globals['debug']['previousPolling'] = logging.INFO  # For polling debugging
 
@@ -124,7 +124,7 @@ class Plugin(indigo.PluginBase):
         # Initialise dictionary to store message queues
         self.globals['queues'] = dict()
         self.globals['queues']['trvHandler'] = dict()
-        # self.globals['queues']['runConcurrentQueue'] = dict()
+        self.globals['queues']['delay'] = dict()
         self.globals['queues']['initialised'] = False
 
         # Initialise dictionary to store heating schedules
@@ -150,6 +150,7 @@ class Plugin(indigo.PluginBase):
         self.globals['threads'] = dict()
         self.globals['threads']['polling'] = dict()  # There is only one 'polling' thread for all TRV devices
         self.globals['threads']['trvHandler'] = dict()  # There is only one 'trvHandler' thread for all TRV devices
+        self.globals['threads']['delayHandler'] = dict()  # There is only one 'delayHandler' thread for all TRV devices
 
         self.globals['threads']['runConcurrentActive'] = False
 
@@ -160,9 +161,6 @@ class Plugin(indigo.PluginBase):
         # Initialise dictionary for constants
         self.globals['constant'] = dict()
         self.globals['constant']['defaultDatetime'] = datetime.datetime.strptime('2000-01-01','%Y-%m-%d')
-
-        # Initialise dictionary for update checking
-        self.globals['update'] = dict()
 
         # Setup dictionary of supported TRV models
         xmlFile = '{}/Plugins/TRV.indigoPlugin/Contents/Resources/supportedThermostatModels.xml'.format(self.globals['pluginInfo']['path'])
@@ -213,13 +211,18 @@ class Plugin(indigo.PluginBase):
 
         # Create trvHandler process queue
         self.globals['queues']['trvHandler'] = Queue.PriorityQueue()  # Used to queue trvHandler commands
-        self.globals['queues']['runConcurrentQueue'] = Queue.Queue()  # t.b.a
+        self.globals['queues']['delayHandler'] = Queue.Queue()
         self.globals['queues']['initialised'] = True
         
         self.globals['threads']['trvHandler']['event']  = threading.Event()
         self.globals['threads']['trvHandler']['thread'] = ThreadTrvHandler(self.globals, self.globals['threads']['trvHandler']['event'])
         # self.globals['threads']['trvHandler']['thread'].setDaemon(True)
         self.globals['threads']['trvHandler']['thread'].start()
+
+        self.globals['threads']['delayHandler']['event']  = threading.Event()
+        self.globals['threads']['delayHandler']['thread'] = ThreadDelayHandler(self.globals, self.globals['threads']['delayHandler']['event'])
+        # self.globals['threads']['delayHandler']['thread'].setDaemon(True)
+        self.globals['threads']['delayHandler']['thread'].start()
 
         self.validateActionFlag = dict()
 
@@ -277,6 +280,8 @@ class Plugin(indigo.PluginBase):
             prefsConfigUiValues["trvVariableFolderName"] = 'TRV'
         if "disableHeatSourceDeviceListFilter" not in prefsConfigUiValues:
             prefsConfigUiValues["disableHeatSourceDeviceListFilter"] = False
+        if "delayQueueSeconds" not in prefsConfigUiValues:
+            prefsConfigUiValues["delayQueueSeconds"] = 0
 
         return prefsConfigUiValues
 
@@ -296,22 +301,11 @@ class Plugin(indigo.PluginBase):
                 return
             self.globals['config']['disableHeatSourceDeviceListFilter'] = valuesDict.get('disableHeatSourceDeviceListFilter', False)
 
-
-            self.globals['update']['check'] = bool(valuesDict.get("updateCheck", False))
-            self.globals['update']['checkFrequency'] = valuesDict.get("checkFrequency", 'DAILY')
-
-            if self.globals['update']['check']:
-                if self.globals['update']['checkFrequency'] == 'WEEKLY':
-                    self.globals['update']['checkTimeIncrement'] = (7 * 24 * 60 * 60)  # In seconds
-                else:
-                    # DAILY 
-                    self.globals['update']['checkTimeIncrement'] = (24 * 60 * 60)  # In seconds
-
-            # ### VARIABLE FOLDER ###
-            self.globals['config']['trvVariableFolderName'] = valuesDict.get("trvVariableFolderName",'TRV')
+            # Delay Queue Options
+            self.globals['config']['delayQueueSeconds'] = int(valuesDict.get("delayQueueSeconds",0))
+            self.globals['config']['delayQueueSecondsForValveCommand'] = int(valuesDict.get("delayQueueSecondsForValveCommand",0))
 
             # CSV File Handling (for e.g. Matplotlib plugin)
-
             self.globals['config']['csvStandardEnabled'] = valuesDict.get("csvStandardEnabled",False)
             self.globals['config']['csvPostgresqlEnabled'] = valuesDict.get("csvPostgresqlEnabled",False)
             self.globals['config']['postgresqlUser'] = valuesDict.get("postgresqlUser",'')
@@ -320,6 +314,7 @@ class Plugin(indigo.PluginBase):
             self.globals['config']['csvPrefix'] = valuesDict.get("csvPrefix",'TRV_Plugin')
 
             # Create TRV Variable folder name (if required)
+            self.globals['config']['trvVariableFolderName'] = valuesDict.get("trvVariableFolderName",'TRV')
             if self.globals['config']['trvVariableFolderName'] == '':
                 self.globals['config']['trvVariableFolderId'] = 0  # Not required
             else:
@@ -341,6 +336,7 @@ class Plugin(indigo.PluginBase):
 
         self.globals['debug']['general'] = logging.INFO  # For general debugging of the main thread
         self.globals['debug']['trvHandler'] = logging.INFO  # For debugging messages
+        self.globals['debug']['delayvHandler'] = logging.INFO  # For debugging messages
         self.globals['debug']['methodTrace'] = logging.INFO  # For displaying method invocations i.e. trace method
         self.globals['debug']['polling'] = logging.INFO  # For polling debugging
 
@@ -351,6 +347,7 @@ class Plugin(indigo.PluginBase):
 
         debugGeneral = bool(valuesDict.get("debugGeneral", False))
         debugTrvHandler = bool(valuesDict.get("debugTrvHandler", False))
+        debugDelayHandler = bool(valuesDict.get("debugDelayHandler", False))
         debugMethodTrace = bool(valuesDict.get("debugMethodTrace", False))
         debugPolling = bool(valuesDict.get("debugPolling", False))
 
@@ -359,12 +356,14 @@ class Plugin(indigo.PluginBase):
             self.generalLogger.setLevel(self.globals['debug']['general'])
         if debugTrvHandler:
             self.globals['debug']['trvHandler'] = logging.DEBUG  # For debugging TRV handler thread
+        if debugDelayHandler:
+            self.globals['debug']['delayHandler'] = logging.DEBUG  # For debugging Delay handler thread
         if debugMethodTrace:
             self.globals['debug']['methodTrace'] = logging.THREADDEBUG  # For displaying method invocations i.e. trace method
         if debugPolling:
             self.globals['debug']['polling'] = logging.DEBUG  # For polling debugging
 
-        self.globals['debug']['active'] = debugGeneral or debugTrvHandler or debugMethodTrace or debugPolling
+        self.globals['debug']['active'] = debugGeneral or debugTrvHandler or debugDelayHandler or debugMethodTrace or debugPolling
 
         if not self.globals['debug']['enabled'] or not self.globals['debug']['active']:
             self.generalLogger.info(u'No debugging requested for TRV plugin')
@@ -374,6 +373,8 @@ class Plugin(indigo.PluginBase):
                 debugTypes.append('General')
             if debugTrvHandler:
                 debugTypes.append('TRV Handler')
+            if debugDelayHandler:
+                debugTypes.append('Delay Handler')
             if debugMethodTrace:
                 debugTypes.append('Method Trace')
             if debugPolling:
@@ -883,7 +884,10 @@ class Plugin(indigo.PluginBase):
                             updateValue = itemToUpdate[1]
                             deviceUpdatedLog = deviceUpdatedLog + '\n==    > Description = {}, Value = {}'.format(UPDATE_TRANSLATION[updateKey], updateValue)
                     
-                        self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_HIGH, 0, CMD_UPDATE_TRV_CONTROLLER_STATES, trvCtlrDevId, [updateList, ]])
+                        if self.globals['config']['delayQueueSeconds'] == 0:
+                            self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_HIGH, 0, CMD_UPDATE_TRV_CONTROLLER_STATES, trvCtlrDevId, [updateList, ]])
+                        else:
+                            self.globals['queues']['delayHandler'].put([QUEUE_PRIORITY_STATUS_HIGH, 0, CMD_UPDATE_TRV_CONTROLLER_STATES, trvCtlrDevId, [updateList, ]])
 
                     deviceUpdatedLog = deviceUpdatedLog + '\n==  Description of states that have changed for TRVHANDLER [controlTrv]:'.format(newDev.name)
                     for itemToUpdate in updateLog.iteritems():
@@ -1202,7 +1206,10 @@ class Plugin(indigo.PluginBase):
                         else:
                             # Must be Remote
                             queuedCommand = CMD_UPDATE_REMOTE_STATES
-                        self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, self.globals['deviceUpdatedSequenceCount'], queuedCommand, trvCtlrDevId, [updateList, ]])
+                        if self.globals['config']['delayQueueSeconds'] == 0:
+                            self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, self.globals['deviceUpdatedSequenceCount'], queuedCommand, trvCtlrDevId, [updateList, ]])
+                        else:
+                            self.globals['queues']['delayHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, self.globals['deviceUpdatedSequenceCount'], queuedCommand, trvCtlrDevId, [updateList, ]])
 
                         deviceUpdatedLog = deviceUpdatedLog + '\n==  Description of updates that will be performed by TRVHANDLER:'.format(newDev.name)
                         for itemToUpdate in updateLog.iteritems():
