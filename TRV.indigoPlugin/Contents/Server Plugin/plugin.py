@@ -2268,9 +2268,9 @@ class Plugin(indigo.PluginBase):
                     remoteDevId = int(valuesDict.get('remoteDevId', 0))
                     if remoteDevId != 0 and indigo.devices[remoteDevId].deviceTypeId != 'trvController':
                         remoteDev = indigo.devices[remoteDevId] 
-                        if (remoteDev.subModel == 'Temperature'
-                            or remoteDev.subModel == 'Temperature 1'
-                            or remoteDev.subModel == 'Thermostat'
+                        if (remoteDev.subModel[0:11] == 'Temperature'
+                            or remoteDev.subModel[0:13] == 'Temperature 1'
+                            or remoteDev.subModel[0:10] == 'Thermostat'
                             or remoteDev.subModel[0:7].lower() == 'sensor '
                             or 'temperatureInput1' in remoteDev.states
                             or 'temperature' in remoteDev.states
@@ -2636,7 +2636,7 @@ class Plugin(indigo.PluginBase):
         self.myArray = []
         for dev in indigo.devices.iter():
             if dev.deviceTypeId != 'trvController':
-                if dev.subModel == 'Temperature' or dev.subModel == 'Temperature 1' or dev.subModel == 'Thermostat' or dev.deviceTypeId == 'hueMotionTemperatureSensor' or (dev.model == 'Thermostat (TF021)' and dev.subModel[0:7].lower() == 'sensor '):
+                if dev.subModel[0:11] == 'Temperature' or dev.subModel[0:13] == 'Temperature 1' or dev.subModel[0:10] == 'Thermostat' or dev.deviceTypeId == 'hueMotionTemperatureSensor' or (dev.model == 'Thermostat (TF021)' and dev.subModel[0:7].lower() == 'sensor '):
                     self.myArray.append((dev.id, dev.name))
                 else:
                     try:
