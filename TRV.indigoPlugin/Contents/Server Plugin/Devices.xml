@@ -41,7 +41,7 @@
                 <Description>Show Battery Level in UI</Description>
             </Field>
 
-            <Field id="header-1" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+            <Field id="header-1" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
                 <Label>CONTROLLED TRV / HEAT SOURCE SELECTION</Label>
             </Field>
             <Field id="trvDevId" type="menu" alwaysUseInDialogHeightCalc="true">
@@ -71,7 +71,7 @@
             </Field>
  
             <Field id="separator-1" type="separator" alwaysUseInDialogHeightCalc="true"/>
-            <Field id="header-2" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+            <Field id="header-2" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
                 <Label>CSV</Label>
             </Field>
 
@@ -106,7 +106,7 @@
                 <Label>Supports Wakeup:</Label>
             </Field>
             <Field id="separator-2" type="separator" dynamicReload="true" visibleBindingId="supportsWakeup" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true"/>
-            <Field id="header-3" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+            <Field id="header-3" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
                 <Label>POLLING</Label>
             </Field>
             <Field id="pollingScheduleActive" type="textfield" defaultValue="5" dynamicReload="true" visibleBindingId="supportsWakeup" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
@@ -118,9 +118,12 @@
             <Field id="pollingSchedulesNotEnabled" type="textfield" defaultValue="30" dynamicReload="true" visibleBindingId="supportsWakeup" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
                 <Label>Polling Minutes [Schedules Not Enabled]:</Label>
             </Field>
+            <Field id="pollingBoostEnabled" type="textfield" defaultValue="5" dynamicReload="true" visibleBindingId="supportsWakeup" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
+                <Label>Polling Minutes [Boost Enabled]:</Label>
+            </Field>
 
             <Field id="separator-3" type="separator" alwaysUseInDialogHeightCalc="true"/>
-            <Field id="header-4" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+            <Field id="header-4" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
                 <Label>TRV CONTROLLER DETAILS</Label>
             </Field>
 
@@ -154,16 +157,16 @@
                 <Label>^ Specify the default ON temperature that will be used as the Heat Setpoint if the device is manually turned on.</Label>
             </Field>
 
-<!--             <Field id="trvDeltaMax" type="textfield" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="false"  defaultValue="3" alwaysUseInDialogHeightCalc="true">
+<!--        <Field id="trvDeltaMax" type="textfield" visibleBindingId="remoteThermostatControlEnabled" visibleBindingValue="false"  defaultValue="3" alwaysUseInDialogHeightCalc="true">
                 <Label>TRV Delta Max:</Label>
             </Field>
  -->
-            <Field id="help-9" type="label" alignWithControl="true" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-9" type="label" alignWithControl="true" visibleBindingId="remoteThermostatControlEnabled" visibleBindingValue="false" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Specify the maximum number of degrees to increase the TRV Heat Setpoint by in order to ensure the TRV is controlled by the Remote Thermostat and not turned off too early.</Label>
             </Field>
 
             <Field id="separator-4" type="separator" alwaysUseInDialogHeightCalc="true"/>
-            <Field id="header-5" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+            <Field id="header-5" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
                 <Label>TRV DETAILS</Label>
             </Field>
 
@@ -208,12 +211,25 @@
                 <Label>^ Specify a valiue that is > 21 and less than the TRV Maximum Settable Temperature [FULLY ON].</Label>
             </Field>
 
-            <Field id="valveAssistance" type="checkbox" defaultValue="true" alwaysUseInDialogHeightCalc="true" dynamicReload="true" visibleBindingId="supportsValveControl" visibleBindingValue="true">
+            <Field id="valveAssistance" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" dynamicReload="true" visibleBindingId="supportsValveControl" visibleBindingValue="true" hidden="true">
                 <Label>Valve Assistance:</Label>
                 <Description>Assist TRV using valve commands</Description>
             </Field>
+
+            <Field id="advancedOption" type="menu" defaultValue="0" alwaysUseInDialogHeightCalc="true"  dynamicReload="true" visibleBindingId="supportsValveControl" visibleBindingValue="true">
+                <Label>Advanced Options:</Label>
+                <List>
+                    <Option value="0">-- Select Option --</Option>
+                    <Option value="1">None</Option>
+                    <Option value="2">Firmware Workaround</Option>
+                    <Option value="3">Valve Assistance</Option>
+                </List>
+            </Field>
+
             <Field id="help-13" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true" dynamicReload="true" visibleBindingId="supportsValveControl" visibleBindingValue="true">
-                <Label>^ As this TRV supports Valve Commands, selecting this option can help expedite the response of the TRV to a setpoint change and also help ameliorate the situation where the TRV sometimes gets into a false state e.g. says it is off when the valve is still open. The plugin default setting is ON.</Label>
+                <Label>^ The Advanced Options are offered as an attempt to ameliorate the situation where the TRV sometimes gets into a false state e.g. says it is off or beneath the Setpoint when the valve is still open.
+                    'Firmware Workaround' implements a strategy of sending a command sequence of 'Boost, Off, Heat' which has been suggested as a fix for the issue.
+                    'Valve Assist' implements a strategy forcing the valve into a particular state. This option is now deprecated in favour of 'Firmware Workaround'.</Label>
             </Field>
 
             <Field id="enableTrvOnOff" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" dynamicReload="true" visibleBindingId="supportsHvacOnOff" visibleBindingValue="true">
@@ -225,39 +241,57 @@
             </Field>
 
             <Field id="separator-5" type="separator" alwaysUseInDialogHeightCalc="true"/>
-            <Field id="header-6" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+            <Field id="header-6" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
                 <Label>REMOTE DETAILS</Label>
             </Field>
 
-            <Field id="remoteThermostatContolEnabled" type="checkbox" defaultValue="false">
+            <Field id="remoteThermostatControlEnabled" type="checkbox" defaultValue="false">
                 <Label>TRV Remote Control:</Label>
                 <Description>Check to select Remote Thermostat to control TRV</Description>
             </Field>
             <Field id="help-15" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Optionally, select a remote thermostat (or temperature measuring device) that can be used to control the TRV.</Label>
                 </Field>
-            <Field id="remoteDevId" type="menu" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="remoteDevId" type="menu" visibleBindingId="remoteThermostatControlEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
                 <Label>Remote Thermostat:</Label>
                 <List class="self" method="remoteThermostatDevices"/>
             </Field>
-            <Field id="remoteSetpointHeatControl" type="checkbox" defaultValue="false" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="remoteSetpointHeatControl" type="checkbox" defaultValue="false" visibleBindingId="remoteThermostatControlEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
                 <Label>Remote Setpoint Heat Adjustment:</Label>
                 <Description>Check to enable manual adjustment.</Description>
             </Field>
-            <Field id="remoteDeltaMax" type="textfield"  defaultValue="5" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="remoteDeltaMax" type="textfield"  defaultValue="5" visibleBindingId="remoteThermostatControlEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
                 <Label>Remote Delta Max:</Label>
             </Field>
-            <Field id="help-16" type="label" alignWithControl="true" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-16" type="label" alignWithControl="true" visibleBindingId="remoteThermostatControlEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Specify the maximum number of degrees to exceed the TRV Heat Setpoint to ensure the TRV is controlled by the Remote Thermostat and not turned off too early.</Label>
                 </Field>
-            <Field id="remoteTempOffset" type="textfield"  defaultValue="0.0" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="remoteTempOffset" type="textfield"  defaultValue="0.0" visibleBindingId="remoteThermostatControlEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
                 <Label>Remote Temperature Offset:</Label>
             </Field>
-            <Field id="help-17" type="label" alignWithControl="true" visibleBindingId="remoteThermostatContolEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-17" type="label" alignWithControl="true" visibleBindingId="remoteThermostatControlEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Specify the temperature offset that will be applied to the temperature returned by the remote thermostat e.g 0.5 or -1.0.</Label>
                 </Field>
+
+            <Field id="separator-5B" type="separator" alwaysUseInDialogHeightCalc="true"/>
+            <Field id="header-6B" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
+                <Label>RADIATOR MONITORING</Label>
+            </Field>
+
+            <Field id="radiatorMonitoringEnabled" type="checkbox" defaultValue="false">
+                <Label>Monitor Radiator:</Label>
+                <Description>Check to select monitoring of radiator temperature</Description>
+            </Field>
+            <Field id="help-15B" type="label" alignWithControl="true" alwaysUseInDialogHeightCalc="true">
+                <Label>^ Optionally, select a radiator temperature sensor that can be used to monitor the temperature of the radiator.</Label>
+                </Field>
+            <Field id="radiatorDevId" type="menu" visibleBindingId="radiatorMonitoringEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
+                <Label>Radiator Temperature sensor:</Label>
+                <List class="self" method="radiatorTemperatureSensorDevices"/>
+            </Field>
+
             <Field id="separator-6" type="separator" />
-            <Field id="header-7" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+            <Field id="header-7" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
                 <Label>SCHEDULING</Label>
             </Field>
 
@@ -280,6 +314,34 @@
                 <Label>Select up to ten schedules and define the time and heat setpoint to be used by this device for each enabled schedule.</Label>
             </Field>
 
+            <Field id="scheduleDefault" type="checkbox" defaultValue="true" readonly="true" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="2">
+                <Label>Heating Schedule Default:</Label>
+                <Description>Default is always enabled.</Description>
+            </Field>
+            <Field id="scheduleDefaultTimeOn" type="textfield" defaultValue="00:00" enabledBindingId="schedule1Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>ON Time:</Label>
+            </Field>
+            <Field id="scheduleDefaultTimeOff" type="textfield" defaultValue="00:00" enabledBindingId="schedule1Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1" alwaysUseInDialogHeightCalc="true">
+                <Label>OFF Time:</Label>
+            </Field>
+            <Field id="scheduleDefaultSetpointHeat" type="textfield" defaultValue="21" enabledBindingId="schedule1Enabled" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>Setpoint:</Label>
+            </Field>
+            <Field id="scheduleDefaultForceOff" type="checkbox" defaultValue="false" enabledBindingId="schedule1Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Force TRV Off:</Label>
+                <Description>Check to force TRV off if temperature beneath setpoint.</Description>
+            </Field>
+            <Field id="pollingDefaultTrvSchedule" type="textfield" defaultValue="15" dynamicReload="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Polling Minutes [TRV]:</Label>
+            </Field>
+
+            <Field id="pollingDefaultRemoteSchedule" type="textfield" defaultValue="15" dynamicReload="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Polling Minutes [Remote]:</Label>
+            </Field>
+
+            <Field id="scheduleDefaultSeparator" type="label" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>----------</Label>
+            </Field>
             <Field id="schedule1Enabled" type="checkbox" defaultValue="false" alwaysUseInDialogHeightCalc="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2">
                 <Label>Heating Schedule One:</Label>
                 <Description>Check to enable and set options.</Description>
@@ -297,8 +359,17 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule1Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
-                <Label>---</Label>
+            <Field id="polling1TrvSchedule" type="textfield" defaultValue="15" dynamicReload="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Polling Minutes [TRV]:</Label>
+            </Field>
+
+            <Field id="polling1RemoteSchedule" type="textfield" defaultValue="15" dynamicReload="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+                <Label>Polling Minutes [Remote]:</Label>
+            </Field>
+
+
+            <Field id="schedule1Separator" type="label" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+                <Label>----------</Label>
             </Field>
 
 
@@ -319,7 +390,7 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule2Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule2Separator" type="label" fontColor="green" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
                 <Label>---</Label>
             </Field>
 
@@ -341,7 +412,7 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule3Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule3Separator" type="label" fontColor="green" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
                 <Label>---</Label>
             </Field>
 
@@ -363,7 +434,7 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule4Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule4Separator" type="label" fontColor="green" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
                 <Label>---</Label>
             </Field>
 
@@ -382,7 +453,7 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule5Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule5Separator" type="label" fontColor="green" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
                 <Label>---</Label>
             </Field>
 
@@ -401,7 +472,7 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule6Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule6Separator" type="label" fontColor="green" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
                 <Label>---</Label>
             </Field>
 
@@ -420,7 +491,7 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule7Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule7Separator" type="label" fontColor="green" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
                 <Label>---</Label>
             </Field>
 
@@ -439,7 +510,7 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule8Separator" type="label" fontColor="blue" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule8Separator" type="label" fontColor="green" alignWithControl="true" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
                 <Label>---</Label>
             </Field>
 
@@ -458,7 +529,7 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule9Separator" type="label" fontColor="blue" alignWithControl="true" enabledBindingId="schedule9Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule9Separator" type="label" fontColor="green" alignWithControl="true" enabledBindingId="schedule9Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
                 <Label>---</Label>
             </Field>
 
@@ -476,7 +547,7 @@
                 <Label>Force TRV Off:</Label>
                 <Description>Check to force TRV off if temperature beneath setpoint.</Description>
             </Field>
-            <Field id="schedule10Separator" type="label" fontColor="blue" alignWithControl="true" enabledBindingId="schedule10Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
+            <Field id="schedule10Separator" type="label" fontColor="green" alignWithControl="true" enabledBindingId="schedule10Enabled" visibleBindingId="scheduleMode" visibleBindingValue="2" alwaysUseInDialogHeightCalc="true">
                 <Label>---</Label>
             </Field>
 

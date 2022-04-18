@@ -5,10 +5,10 @@
         <Label>This Plugin controls Z-Wave Thermostatic Radiator Valves (TRVs) in a multi-thermostat installation and enhances the standard devices with features such as schedule control. 😄</Label>
     </Field>
     <Field id="copyright" type="label">
-        <Label>Copyright © 2019 Autolog</Label>
+        <Label>Copyright © 2020 Autolog</Label>
     </Field>
     <Field id="separator-1" type="separator"/> 
-    <Field id="header-1" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+    <Field id="header-1" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
         <Label>HEAT SOURCE</Label>
     </Field>
 
@@ -27,41 +27,31 @@
         <Label> ^ Specify the name of the Indigo folder in which the plugin will list any pre-defined Heat Source variables when editing a TRV device. Leave empty if the folder is not required. The default variable folder is 'TRV' and if required and missing, will be created.</Label>
     </Field>
     <Field id="separator-2" type="separator"/>  
-    <Field id="header-2" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+    <Field id="header-2" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
         <Label>DELAY QUEUE</Label>
     </Field>
     <Field id="delayQueueSeconds" type="menu" defaultValue="0" tooltip="Select Queue Delay time from list.">
         <Label>Queue Delay:</Label>
         <List>
             <Option value="0">No Delay</Option>
-            <Option value="10">10 Seconds</Option>
-            <Option value="15">15 Seconds</Option>
-            <Option value="20">20 seconds</Option>
-            <Option value="30">30 seconds</Option>
-            <Option value="40">40 seconds</Option>
-            <Option value="50">50 seconds</Option>
-            <Option value="60">1 Minute</Option>
+            <Option value="1">1 Second</Option>
+            <Option value="2">2 Seconds</Option>
+            <Option value="3">3 seconds</Option>
+            <Option value="4">4 seconds</Option>
+            <Option value="5">5 seconds</Option>
+            <Option value="6">6 seconds</Option>
+            <Option value="7">7 seconds</Option>
+            <Option value="8">8 seconds</Option>
+            <Option value="9">9 seconds</Option>
+            <Option value="10">10 seconds</Option>
         </List>
     </Field>
     <Field id="help-3" type="label" alignWithControl="true">
         <Label> ^ Specify the length of time you want between any single status request across all TRVs. The aim being to prevent a Z-Wave flood of status requests at the same time. Select No Delay [Default] to not use this feature.</Label>
     </Field>
-    <Field id="delayQueueSecondsForValveCommand" type="menu" defaultValue="0" tooltip="Select Queue Delay time from list.">
-        <Label>Queue Delay [Spirit Valve]:</Label>
-        <List>
-            <Option value="0">As Queue Delay Value</Option>
-            <Option value="5">5 Seconds</Option>
-            <Option value="10">10 Seconds</Option>
-            <Option value="15">15 seconds</Option>
-            <Option value="20">20 seconds</Option>
-        </List>
-    </Field>
-    <Field id="help-3B" type="label" alignWithControl="true">
-        <Label> ^ Specify a different length of delay time you want between any single status request for a Spirit Valve across all TRVs if Queue Delay has a delay specified. This should be much less than the Queue Delay. Select 'As Queue Delay Value' [Default] to not use this feature.</Label>
-    </Field>
 
     <Field id="separator-3" type="separator"/>  
-    <Field id="header-3" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
+    <Field id="header-3" type="label" fontColor="green" alwaysUseInDialogHeightCalc="true">
         <Label>CSV</Label>
     </Field>
     <Field type="checkbox" id="csvStandardEnabled" default="false">
@@ -92,33 +82,38 @@
         <Label>^ Specify a prefix to be prepended to the CSV file name created from the TRV device specified 'Short Name' and state name</Label>
     </Field>
     <Field id="separator-4" type="separator"/>  
-    <Field id="header-4" type="label" fontColor="blue" alwaysUseInDialogHeightCalc="true">
-        <Label>DEBUG LOGGING</Label>
+
+	<Field id="space_4" type="label" alwaysUseInDialogHeightCalc="true"><Label/></Field>
+
+    <Field id="header-4" type="label" alwaysUseInDialogHeightCalc="true" fontColor="green">
+        <Label>PLUGIN / INDIGO EVENT LOG LOGGING</Label>
     </Field>
 
-    <Field type="checkbox" id="debugEnabled" default="false">
-        <Label>Debugging:</Label>
-        <Description>Enable debug logging.</Description>
-    </Field>
+	<Field id="space_5" type="label" alwaysUseInDialogHeightCalc="true"><Label/></Field>
 
-     <Field id="help-6" type="label" alignWithControl="true" visibleBindingId="debugEnabled" visibleBindingValue="true" alwaysUseInDialogHeightCalc="true">
-        <Label>^ Select the debug logging to be performed by ticking the required logging option(s) below.</Label>
-    </Field>
-    <Field type="checkbox" id="debugGeneral" defaultValue="false"  visibleBindingId="debugEnabled" visibleBindingValue="true" tooltip="Enable logging of general debugging info." alwaysUseInDialogHeightCalc="true">
-        <Label>General:</Label>
-        <Description>Enable debug logging of General processing.</Description>
-    </Field>
-    <Field type="checkbox" id="debugTrvHandler" defaultValue="false"  visibleBindingId="debugEnabled" visibleBindingValue="true" tooltip="Enable logging of TRV Handler debugging info." alwaysUseInDialogHeightCalc="true">
-        <Label>TRV Handler:</Label>
-        <Description>Enable debug logging of TRV Handler processing.</Description>
-    </Field>
-    <Field type="checkbox" id="debugDelayHandler" defaultValue="false"  visibleBindingId="debugEnabled" visibleBindingValue="true" tooltip="Enable logging of Delay Handler debugging info." alwaysUseInDialogHeightCalc="true">
-        <Label>Delay Handler:</Label>
-        <Description>Enable debug logging of Delay Handler processing.</Description>
-    </Field>
-    <Field type="checkbox" id="debugMethodTrace" default="false" visibleBindingId="debugEnabled" visibleBindingValue="true" tooltip="Enable method tracing.">
-        <Label>Method Trace:</Label>
-        <Description>Enable Method Trace debug logging.</Description>
-    </Field>
+	<Field id="eventLogLevel" type="menu" defaultValue="20" alwaysUseInDialogHeightCalc="true">
+		<Label>Logging Level - Indigo Event Log:</Label>
+		<List>
+			<Option value="5">Detailed Debugging Messages</Option>
+			<Option value="10">Debugging Messages</Option>
+			<Option value="20">Informational Messages</Option>
+			<Option value="30">Warning Messages</Option>
+			<Option value="40">Error Messages</Option>
+			<Option value="50">Critical Errors Only</Option>
+		</List>
+	</Field>
+
+	<Field id="pluginLogLevel" type="menu" defaultValue="20" alwaysUseInDialogHeightCalc="true">
+		<Label>Logging Level - Plugin Event Log:</Label>
+		<List>
+			<Option value="5">Detailed Debugging Messages</Option>
+			<Option value="10">Debugging Messages</Option>
+			<Option value="20">Informational Messages</Option>
+			<Option value="30">Warning Messages</Option>
+			<Option value="40">Error Messages</Option>
+			<Option value="50">Critical Errors Only</Option>
+		</List>
+	</Field>
+
 
 </PluginConfig>

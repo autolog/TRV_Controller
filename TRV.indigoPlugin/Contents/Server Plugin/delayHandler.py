@@ -7,15 +7,16 @@
 try:
     # noinspection PyUnresolvedReferences
     import indigo
-except ImportError, e:
+except ImportError:
     pass
 
 import logging
 
-import Queue
+import queue
 import sys
 import threading
 import time
+import traceback
 
 from constants import *
 
@@ -31,70 +32,64 @@ class ThreadDelayHandler(threading.Thread):
 
         self.globals = pluginGlobals
 
-        self.delayHandlerLogger = logging.getLogger("Plugin.delayHandler")
-        self.delayHandlerLogger.setLevel(self.globals['debug']['delayHandler'])
-
-        self.methodTracer = logging.getLogger("Plugin.method")
-        self.methodTracer.setLevel(self.globals['debug']['methodTrace'])
-
-        self.delayHandlerLogger.debug(u"Debugging Delay Handler Thread")
+        self.delayHandlerLogger = logging.getLogger("Plugin.TRV_DH")
+        self.delayHandlerLogger.debug("Debugging Delay Handler Thread")
 
         self.threadStop = event
+
+    def exception_handler(self, exception_error_message, log_failing_statement):
+        filename, line_number, method, statement = traceback.extract_tb(sys.exc_info()[2])[-1]
+        module = filename.split('/')
+        log_message = f"'{exception_error_message}' in module '{module[-1]}', method '{method}'"
+        if log_failing_statement:
+            log_message = log_message + f"\n   Failing statement [line {line_number}]: '{statement}'"
+        else:
+            log_message = log_message + f" at line {line_number}"
+        self.delayHandlerLogger.error(log_message)
 
     def run(self):
 
         try:
-            self.methodTracer.threaddebug(u'DelayHandler Method')
-
-            # Initialise routine on thread start
-            pass
-
-            self.delayHandlerLogger.debug(u'Delay Handler Thread initialised')
+            self.delayHandlerLogger.debug('Delay Handler Thread initialised')
 
             while not self.threadStop.is_set():
                 try:
                     delayQueuedEntry = self.globals['queues']['delayHandler'].get(True, 5)
 
                     # delayQueuedEntry format:
-                    #   - Priority
-                    #   - Command
                     #   - Device
-                    #   - Data
+                    #   - Polling Sequence
 
-                    # self.delayHandlerLogger.debug(u'DEQUEUED MESSAGE = {}'.format(delayQueuedEntry))
-                    trvQueuePriority, trvQueueSequence, trvCommand, trvCommandDevId, trvCommandPackage = delayQueuedEntry
+                    # self.delayHandlerLogger.debug(f'DEQUEUED MESSAGE = {delayQueuedEntry}')
+                    # trvCommand, trvCommandDevId, pollingSequence = delayQueuedEntry
+                    trvCommand, trvCommandDevId = delayQueuedEntry
 
                     if trvCommand == CMD_STOP_THREAD:
-                        self.globals['queues']['trvHandler'].put(delayQueuedEntry)  # Pass CMD_STOP_THREAD on to TRV Handler befor stoppin Delay handler
                         break  # Exit While loop and quit thread
-
 
                     # Check if monitoring / debug options have changed and if so set accordingly
                     if self.globals['debug']['previousDelayHandler'] != self.globals['debug']['delayHandler']:
                         self.globals['debug']['previousDelayHandler'] = self.globals['debug']['delayHandler']
                         self.delayHandlerLogger.setLevel(self.globals['debug']['delayHandler'])
-                    if self.globals['debug']['previousMethodTrace'] != self.globals['debug']['methodTrace']:
-                        self.globals['debug']['previousMethodTrace'] = self.globals['debug']['methodTrace']
-                        self.methodTracer.setLevel(self.globals['debug']['methodTrace'])
 
-                    if trvCommand == CMD_UPDATE_VALVE_STATES and self.globals['config']['delayQueueSecondsForValveCommand'] > 0:
-                        delay_time = self.globals['config']['delayQueueSecondsForValveCommand']
-                    else:
-                        delay_time = self.globals['config']['delayQueueSeconds']
-                    self.delayHandlerLogger.debug(u'DELAY QUEUE ENTRY RETRIEVED AND DELAYED {} SECONDS FOR DEVICE: {}, Command is \'{}\'. Remaining queue size is {}'.format(delay_time, indigo.devices[trvCommandDevId].name, CMD_TRANSLATION[trvCommand], self.globals['queues']['delayHandler'].qsize()))
+                    if trvCommand != CMD_ACTION_POLL:
+                        continue
+
+                    self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, 0, CMD_ACTION_POLL, trvCommandDevId, []])
+
+                    delay_time = self.globals['config']['delayQueueSeconds']
+                    self.delayHandlerLogger.debug(
+                        f'DELAY QUEUE ENTRY RETRIEVED FOR DEVICE: {indigo.devices[trvCommandDevId].name}, Command is \'{CMD_TRANSLATION[CMD_ACTION_POLL]}\'.\nDELAYING FOR {delay_time} SECONDS. Remaining queue size is {self.globals["queues"]["delayHandler"].qsize()}')
+
                     time.sleep(delay_time)
-                    self.delayHandlerLogger.debug(u'DELAY QUEUE ENTRY RELEASED AFTER {} SECONDS FOR DEVICE: {}, Command is \'{}\'. Remaining queue size is {}'.format(delay_time, indigo.devices[trvCommandDevId].name, CMD_TRANSLATION[trvCommand], self.globals['queues']['delayHandler'].qsize()))
+                    self.delayHandlerLogger.debug(f'DELAY COMPLETED AFTER {delay_time} SECONDS.\nRemaining queue size is {self.globals["queues"]["delayHandler"].qsize()}')
 
-                    self.globals['queues']['trvHandler'].put(delayQueuedEntry)
-
-                except Queue.Empty:
+                except queue.Empty:
                     pass
-                except StandardError, err:
-                    self.delayHandlerLogger.error(u'StandardError detected in Delay Handler Thread. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))  
-                except:
-                    self.delayHandlerLogger.error(u'Unexpected Exception detected in Delay Handler Thread. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, sys.exc_info()[0]))
+                except Exception as exception_error:
+                    self.exception_handler(exception_error, True)  # Log error and display failing statement
 
-        except StandardError, err:
-            self.delayHandlerLogger.error(u'StandardError detected in Delay Handler Thread. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
-        self.delayHandlerLogger.debug(u'Delay Handler Thread ended.')
+        self.delayHandlerLogger.debug('Delay Handler Thread ended.')

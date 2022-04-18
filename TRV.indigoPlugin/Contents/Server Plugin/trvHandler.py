@@ -1,72 +1,70 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# TRV Handler © Autolog 2018
+# TRV Controller © Autolog 2018 - 2022
 #
 
 try:
     # noinspection PyUnresolvedReferences
     import indigo
-except ImportError, e:
+except ImportError:
     pass
 
 import collections
 import datetime
-import logging
-try:
-    import psycopg2  # PostgreSQL
-except ImportError, e:
-    pass
 
-import Queue
+import postgresql
+import queue
 import sys
 import threading
 import time
+import traceback
 
 from constants import *
 
-def calcSeconds(schedTime, nowTime):
 
-    def evalSeconds(dt): # e.g.: 141545
-        dtHH = dt / 10000  # e.g.: 14
-        dtTemp = dt % 10000 # e.g. 1545
-        dtMM = dtTemp / 100 # e.g.: 15
-        dtSS = dtTemp % 100  # e.g.: 45
-        dtSeconds = (dtHH * 3600) + (dtMM * 60) + dtSS
-        return dtSeconds
+# noinspection PyPep8Naming
+def calcSeconds(schedule_time, now_time):
+    # noinspection PyPep8Naming
+    def evaluate_seconds(argument_time):  # e.g.: 141545
+        time_hours = argument_time // 10000  # e.g.: 14
+        time_minutes_seconds = argument_time % 10000  # e.g. 1545
+        time_minutes = time_minutes_seconds // 100  # e.g.: 15
+        time_seconds = time_minutes_seconds % 100  # e.g.: 45
+        evaluated_seconds = (time_hours * 3600) + (time_minutes * 60) + time_seconds
+        return evaluated_seconds
 
-    SchedSeconds = evalSeconds(schedTime)
-    nowseconds = evalSeconds(nowTime)
+    schedule_seconds = evaluate_seconds(schedule_time)
+    now_seconds = evaluate_seconds(now_time)
 
-    if nowseconds < SchedSeconds:
-        result = SchedSeconds - nowseconds
+    if now_seconds < schedule_seconds:
+        result = schedule_seconds - now_seconds
 
-        resulthh = result / 3600
-        resultTemp = result % 3600
-        resultmm = resultTemp / 60
-        resultss = resultTemp % 60
-        resultLog = u'Time to next schedule at {} [{}] from now {} [{}]: Seconds = {} = HH = {}, MM = {}, SS = {}'.format(schedTime, SchedSeconds, nowTime, nowseconds, result, resulthh, resultmm, resultss)
-
+        result_hours = result // 3600
+        result_minutes_seconds = result % 3600
+        result_minutes = result_minutes_seconds // 60
+        result_seconds = result_minutes_seconds % 60
+        result_log = (
+            f'Time to next schedule at {schedule_time} [{schedule_seconds}] from now {now_time} [{now_seconds}]: Seconds = {result} = HH = {result_hours}, MM = {result_minutes}, SS = {result_seconds}')
     else:
-        result = 0
-        resultLog = u'nothing to immediately schedule!!! : Time to next schedule at {} [{}] from now {} [{}]'.format(schedTime, SchedSeconds, nowTime, nowseconds)
+        result = 0.0
+        result_log = f'Nothing to immediately schedule: Time to next schedule at {schedule_time} [{schedule_seconds}] from now {now_time} [{now_seconds}]'
+
+    return result, result_log
 
 
-    return result, resultLog
-
-# Calculate number of seconds until five minutes after next midnight 
+# noinspection PyPep8Naming
 def calculateSecondsSinceMidnight():
+    # Calculate number of seconds until five minutes after next midnight 
 
     today = datetime.datetime.now() - datetime.timedelta(1)
-    midnight = datetime.datetime(year=today.year, month=today.month, 
-                    day=today.day, hour=0, minute=0, second=0)
-    secondsSinceMidnight = int((datetime.datetime.now()- midnight).seconds)  # Seconds since midnight
+    midnight = datetime.datetime(year=today.year, month=today.month, day=today.day, hour=0, minute=0, second=0)
+    seconds_since_midnight = int((datetime.datetime.now() - midnight).seconds)  # Seconds since midnight
 
-    return secondsSinceMidnight
-
+    return seconds_since_midnight
 
 
-# noinspection PyUnresolvedReferences,PyPep8Naming
+# noinspection PyUnresolvedReferences, PyPep8Naming
 class ThreadTrvHandler(threading.Thread):
 
     # This class handles TRV processing
@@ -77,40 +75,26 @@ class ThreadTrvHandler(threading.Thread):
 
         self.globals = pluginGlobals
 
-        self.trvHandlerLogger = logging.getLogger("Plugin.trvHandler")
-        self.trvHandlerLogger.setLevel(self.globals['debug']['trvHandler'])
-
-        self.methodTracer = logging.getLogger("Plugin.method")
-        self.methodTracer.setLevel(self.globals['debug']['methodTrace'])
-
-        self.trvHandlerLogger.debug(u"Debugging TRV Handler Thread")
+        self.trvHandlerLogger = logging.getLogger("Plugin.TRV_H")
+        self.trvHandlerLogger.debug("Debugging TRV Handler Thread")
 
         self.threadStop = event
 
-        self.currentTimeUtc = None
-        self.currentTimeDay = None
-        self.toTimeUtc = None
-
-    def convertUnicode(self, unicodeInput):
-        if isinstance(unicodeInput, dict):
-            return dict(
-                [(self.convertUnicode(key), self.convertUnicode(value)) for key, value in unicodeInput.iteritems()])
-        elif isinstance(unicodeInput, list):
-            return [self.convertUnicode(element) for element in unicodeInput]
-        elif isinstance(unicodeInput, unicode):
-            return unicodeInput.encode('utf-8')
+    def exception_handler(self, exception_error_message, log_failing_statement):
+        filename, line_number, method, statement = traceback.extract_tb(sys.exc_info()[2])[-1]
+        module = filename.split('/')
+        log_message = f"'{exception_error_message}' in module '{module[-1]}', method '{method}'"
+        if log_failing_statement:
+            log_message = log_message + f"\n   Failing statement [line {line_number}]: '{statement}'"
         else:
-            return unicodeInput
+            log_message = log_message + f" at line {line_number}"
+        self.trvHandlerLogger.error(log_message)
 
     def run(self):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
             # Initialise routine on thread start
-            pass
-
-            self.trvHandlerLogger.debug(u'TRV Handler Thread initialised')
+            self.trvHandlerLogger.debug('TRV Handler Thread initialised')
 
             while not self.threadStop.is_set():
                 try:
@@ -122,26 +106,31 @@ class ThreadTrvHandler(threading.Thread):
                     #   - Device
                     #   - Data
 
-                    # self.trvHandlerLogger.debug(u'DEQUEUED MESSAGE = {}'.format(trvQueuedEntry))
+                    # self.trvHandlerLogger.debug(f'DEQUEUED MESSAGE = {trvQueuedEntry}')
                     trvQueuePriority, trvQueueSequence, trvCommand, trvCommandDevId, trvCommandPackage = trvQueuedEntry
 
                     if trvCommand == CMD_STOP_THREAD:
                         break  # Exit While loop and quit thread
 
-                    self.currentTime = indigo.server.getTime()
+                    # self.currentTime = indigo.server.getTime()  # TODO: Not needed?
 
                     # Check if monitoring / debug options have changed and if so set accordingly
                     if self.globals['debug']['previousTrvHandler'] != self.globals['debug']['trvHandler']:
                         self.globals['debug']['previousTrvHandler'] = self.globals['debug']['trvHandler']
                         self.trvHandlerLogger.setLevel(self.globals['debug']['trvHandler'])
-                    if self.globals['debug']['previousMethodTrace'] != self.globals['debug']['methodTrace']:
-                        self.globals['debug']['previousMethodTrace'] = self.globals['debug']['methodTrace']
-                        self.methodTracer.setLevel(self.globals['debug']['methodTrace'])
 
-                    if not trvCommandDevId is None:
-                        self.trvHandlerLogger.debug(u'\nTRVHANDLER: \'{}\' DEQUEUED COMMAND \'{}\''.format(indigo.devices[trvCommandDevId].name, CMD_TRANSLATION[trvCommand]))
+                    if trvCommandDevId is not None:
+                        self.trvHandlerLogger.debug(f'\nTRVHANDLER: \'{indigo.devices[trvCommandDevId].name}\' DEQUEUED COMMAND \'{CMD_TRANSLATION[trvCommand]}\'')
                     else:
-                        self.trvHandlerLogger.debug(u'\nTRVHANDLER: DEQUEUED COMMAND \'{}\''.format(CMD_TRANSLATION[trvCommand]))
+                        self.trvHandlerLogger.debug(f'\nTRVHANDLER: DEQUEUED COMMAND \'{CMD_TRANSLATION[trvCommand]}\'')
+
+                    if trvCommand == CMD_ACTION_POLL:
+                        self.pollSpiritActioned(trvCommandDevId)
+                        continue
+
+                    if trvCommand == CMD_TRIGGER_POLL:
+                        self.pollSpiritTriggered(trvCommandDevId)
+                        continue
 
                     if trvCommand in (CMD_UPDATE_TRV_CONTROLLER_STATES, CMD_UPDATE_TRV_STATES, CMD_UPDATE_REMOTE_STATES, CMD_UPDATE_VALVE_STATES):
                         updateList = trvCommandPackage[0]
@@ -196,7 +185,7 @@ class ThreadTrvHandler(threading.Thread):
                         continue
 
                     if trvCommand == CMD_ADVANCE:
-                        advanceType =  trvCommandPackage[0]
+                        advanceType = trvCommandPackage[0]
                         self.processAdvance(trvCommandDevId, advanceType)
                         continue
 
@@ -232,27 +221,442 @@ class ThreadTrvHandler(threading.Thread):
                         self.updateAllCsvFilesViaPostgreSQL(trvCommandDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix)
                         continue
 
-                    self.trvHandlerLogger.error(u'TRVHandler: \'{}\' command cannot be processed'.format(CMD_TRANSLATION[trvCommand]))
+                    self.trvHandlerLogger.error(f'TRVHandler: \'{CMD_TRANSLATION[trvCommand]}\' command cannot be processed')
 
-                except Queue.Empty:
+                except queue.Empty:
                     pass
-                except StandardError, err:
-                    self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))  
-                except:
-                    self.trvHandlerLogger.error(u'Unexpected Exception detected in TRV Handler Thread. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, sys.exc_info()[0]))
+                except Exception as exception_error:
+                    self.exception_handler(exception_error, True)  # Log error and display failing statement
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
-        self.trvHandlerLogger.debug(u'TRV Handler Thread ended.')
+        self.trvHandlerLogger.debug('TRV Handler Thread ended.')
+
+    def controlHeatingSource(self, trvCtlrDevId, heatingId, heatingVarId):  # noqa - trvCtlrDevId not used
+
+        # Determine if heating should be started / ended
+
+        if heatingId == 0 and heatingVarId == 0:
+            return
+
+        self.globals['lock'].acquire()
+
+        try:
+            if heatingId != 0:
+                if len(self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']) == 0:
+                    callingForHeatUi = 'None'
+                else:
+                    callingForHeatUi = '\n'
+                    for callingForHeatTrvCtlrDevId in self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']:
+                        callingForHeatUi = callingForHeatUi + f'  > {indigo.devices[callingForHeatTrvCtlrDevId].name}\n'
+
+                self.trvHandlerLogger.debug(
+                    f'Control Heating Source: {len(self.globals["heaterDevices"][heatingId]["thermostatsCallingForHeat"])} Thermostats calling for heat from Device \'{indigo.devices[heatingId].name}\': {callingForHeatUi}')
+                if len(self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']) > 0:
+                    # if there are thermostats calling for heat, the heating needs to be 'on'
+                    # indigo.variable.updateValue(self.variableId, value="true")  # Variable indicator to show that heating is being requested
+                    if self.globals['heaterDevices'][heatingId]['onState'] != HEAT_SOURCE_ON:
+                        self.globals['heaterDevices'][heatingId]['onState'] = HEAT_SOURCE_ON
+                        if self.globals['heaterDevices'][heatingId]['heaterControlType'] == HEAT_SOURCE_CONTROL_HVAC:
+                            if indigo.devices[heatingId].states['hvacOperationMode'] != HVAC_HEAT:
+                                indigo.thermostat.setHvacMode(heatingId, value=HVAC_HEAT)  # Turn heating 'on'
+                        elif self.globals['heaterDevices'][heatingId]['heaterControlType'] == HEAT_SOURCE_CONTROL_RELAY:
+                            if not indigo.devices[heatingId].onState:
+                                indigo.device.turnOn(heatingId)  # Turn heating 'on'
+                        else:
+                            pass  # ERROR SITUATION
+                else:
+                    # if no thermostats are calling for heat, then the heating needs to be 'off'
+                    # indigo.variable.updateValue(self.variableId, value="false")  # Variable indicator to show that heating is NOT being requested
+                    if self.globals['heaterDevices'][heatingId]['onState'] != HEAT_SOURCE_OFF:
+                        self.globals['heaterDevices'][heatingId]['onState'] = HEAT_SOURCE_OFF
+                        if self.globals['heaterDevices'][heatingId]['heaterControlType'] == HEAT_SOURCE_CONTROL_HVAC:
+                            if indigo.devices[heatingId].states['hvacOperationMode'] != HVAC_OFF:
+                                indigo.thermostat.setHvacMode(heatingId, value=HVAC_OFF)  # Turn heating 'off'
+                        elif self.globals['heaterDevices'][heatingId]['heaterControlType'] == HEAT_SOURCE_CONTROL_RELAY:
+                            if indigo.devices[heatingId].onState:
+                                indigo.device.turnOff(heatingId)  # Turn heating 'off'
+                        else:
+                            pass  # ERROR SITUATION
+
+            if heatingVarId != 0:
+                if len(self.globals['heaterVariables'][heatingVarId]['thermostatsCallingForHeat']) == 0:
+                    callingForHeatUi = 'None'
+                else:
+                    callingForHeatUi = '\n'
+                    for callingForHeatTrvCtlrDevId in self.globals['heaterVariables'][heatingVarId]['thermostatsCallingForHeat']:
+                        callingForHeatUi = callingForHeatUi + f'  > {indigo.devices[callingForHeatTrvCtlrDevId].name}\n'
+
+                self.trvHandlerLogger.debug(f'Control Heating Source: Thermostats calling for heat from Variable \'{indigo.variables[heatingVarId].name}\': {callingForHeatUi}')
+                if len(self.globals['heaterVariables'][heatingVarId]['thermostatsCallingForHeat']) > 0:
+                    # if there are thermostats calling for heat, the heating needs to be 'on'
+                    indigo.variable.updateValue(heatingVarId, value="true")  # Variable indicator to show that heating is being requested
+                else:
+                    # if no thermostats are calling for heat, then the heating needs to be 'off'
+                    indigo.variable.updateValue(heatingVarId, value="false")  # Variable indicator to show that heating is NOT being requested
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+        finally:
+            self.globals['lock'].release()
+
+    def controlTrv(self, trvCtlrDevId):
+
+        try:
+            # Control the thermostat that is controlled by this TRV Controller (trvCtlrDevId)
+
+            if trvCtlrDevId not in self.globals['trvc'] or 'deviceStarted' not in self.globals['trvc'][trvCtlrDevId] or not self.globals['trvc'][trvCtlrDevId]['deviceStarted']:
+                self.trvHandlerLogger.debug(f'controlTrv: \'{indigo.devices[trvCtlrDevId].name}\' startup not yet completed')
+                return
+
+            trvDevId = self.globals['trvc'][trvCtlrDevId]['trvDevId']
+            trvDev = indigo.devices[trvDevId]
+            remoteDevId = self.globals['trvc'][trvCtlrDevId]['remoteDevId']
+
+            self.trvHandlerLogger.debug(
+                f'controlTrv: \'{indigo.devices[trvCtlrDevId].name}\' is set to Controller Mode \'{CONTROLLER_MODE_TRANSLATION[self.globals["trvc"][trvCtlrDevId]["controllerMode"]]}\'')
+            self.trvHandlerLogger.debug(
+                f'controlTrv: \'{indigo.devices[trvCtlrDevId].name}\' internal states [1] are: controllerMode = {self.globals["trvc"][trvCtlrDevId]["controllerMode"]}, setpointHeat = {self.globals["trvc"][trvCtlrDevId]["setpointHeat"]}, setPointTrv =  {self.globals["trvc"][trvCtlrDevId]["setpointHeatTrv"]}')
+
+            if not self.globals['trvc'][trvCtlrDevId]['deviceStarted'] or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_INITIALISATION:  # Return if still in initialisation
+                return
+
+            if self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_HARDWARE or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_UI:
+                self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote'])
+            elif self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_HARDWARE or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_UI:
+                self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
+            else:
+                # self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_Auto or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_UI:
+                # Must be one of: CONTROLLER_MODE_AUTO / CONTROLLER_MODE_UI
+                pass
+
+            self.trvHandlerLogger.debug(
+                f'controlTrv: \'{indigo.devices[trvCtlrDevId].name}\' internal states [2] are: controllerMode = {self.globals["trvc"][trvCtlrDevId]["controllerMode"]}, setpointHeat = {self.globals["trvc"][trvCtlrDevId]["setpointHeat"]}, setPointTrv =  {self.globals["trvc"][trvCtlrDevId]["setpointHeatTrv"]}')
+
+            # Set the Remote Thermostat setpoint if not invoked by remote, and it exists and, setpoint adjustment is enabled
+
+            if self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_AUTO or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_UI or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_HARDWARE or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_UI:
+                if remoteDevId != 0 and self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
+                    if float(indigo.devices[remoteDevId].heatSetpoint) != float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']):
+                        self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeat'])
+                        self.globals['trvc'][trvCtlrDevId]['zwavePendingRemoteSetpointFlag'] = True
+                        self.globals['trvc'][trvCtlrDevId]['zwavePendingRemoteSetpointSequence'] += 1
+                        self.globals['trvc'][trvCtlrDevId]['zwavePendingRemoteSetpointValue'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
+                        indigo.thermostat.setHeatSetpoint(remoteDevId, value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']))  # Set Remote Heat Setpoint to Target Temperature
+                        self.trvHandlerLogger.debug(
+                            f'controlTrv: Adjusting Remote Setpoint Heat from {float(indigo.devices[remoteDevId].heatSetpoint)} to Target Temperature of {float(self.globals["trvc"][trvCtlrDevId]["setpointHeat"])}')
+                        indigo.devices[trvCtlrDevId].updateStateOnServer(key='setpointHeatRemote', value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote']))
+
+            hvacFullPower = False
+            if trvDev.model == 'Thermostat (Spirit)' and 'zwaveHvacOperationModeID' in trvDev.states and trvDev.states['zwaveHvacOperationModeID'] == HVAC_FULL_POWER:
+                hvacFullPower = True
+
+            self.trvHandlerLogger.debug(f'controlTrv: \'{indigo.devices[trvCtlrDevId].name}\' internal states [3] are: HVAC_FULL_POWER = {hvacFullPower}')
+
+            if (float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']) <= float(self.globals['trvc'][trvCtlrDevId]['temperature'])) and not hvacFullPower:
+
+                # TRV should be turned off as its temperature is greater than or equal to the target Temperature
+
+                self.controlTrvHeatingOff(trvCtlrDevId)  # TRV no longer calling for heat
+                self.controlHeatingSource(trvCtlrDevId, self.globals['trvc'][trvCtlrDevId]['heatingId'], self.globals['trvc'][trvCtlrDevId]['heatingVarId'])
+
+                if (self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_AUTO or
+                        self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_UI or
+                        self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_HARDWARE or
+                        self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_UI):
+
+                    if float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']) != float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMinimum']):
+                        self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMinimum'])
+                    if indigo.devices[trvDevId].heatSetpoint != float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']):
+                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointFlag'] = True
+                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointSequence'] += 1
+                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
+                        indigo.thermostat.setHeatSetpoint(trvDevId, value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))
+                        self.trvHandlerLogger.debug(
+                            f'controlTrv: Turning OFF and adjusting TRV Setpoint Heat to \'{float(self.globals["trvc"][trvCtlrDevId]["setpointHeatTrv"])}\'. Z-Wave Pending = {self.globals["trvc"][trvCtlrDevId]["zwavePendingTrvSetpointFlag"]}, Setpoint = \'{self.globals["trvc"][trvCtlrDevId]["zwavePendingTrvSetpointValue"]}\', Sequence = \'{self.globals["trvc"][trvCtlrDevId]["zwavePendingTrvSetpointSequence"]}\'.')
+
+                        indigo.devices[trvCtlrDevId].updateStateOnServer(key='setpointHeatTrv', value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))
+
+                        if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:  # e.g. EUROTronic Spirit Thermostat
+                            if self.globals['trvc'][trvCtlrDevId]['advancedOption'] == ADVANCED_OPTION_FIRMWARE_WORKAROUND:
+                                self.trvHandlerLogger.debug(f'controlTrv: >>>>>> \'{indigo.devices[trvDevId].name}\' SUPPORTS VALVE CONTROL - CLOSING VALVE <<<<<<<<<')
+                                zwaveRawCommandSequence = list()
+                                zwaveRawCommandSequence.append((1, 0, [], 'Timer Initialisation'))
+                                zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x0F], 'Thermostat Mode Control - Boost'))
+                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x00], 'Thermostat Mode Control - Off'))
+                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x01], 'Thermostat Mode Control - Heat'))
+                                if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff']:
+                                    zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x00], 'Thermostat Mode Control - Off'))
+                                self.controlTrvSpiritValveCommandsQueued(trvCtlrDevId, zwaveRawCommandSequence)
+
+                            elif self.globals['trvc'][trvCtlrDevId]['advancedOption'] == ADVANCED_OPTION_VALVE_ASSISTANCE:
+                                self.trvHandlerLogger.debug(f'controlTrv: >>>>>> \'{indigo.devices[trvDevId].name}\' SUPPORTS VALVE CONTROL - CLOSING VALVE <<<<<<<<<')
+                                zwaveRawCommandSequence = list()
+                                zwaveRawCommandSequence.append((1, 0, [], 'Timer Initialisation'))
+                                zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x1F], 'Thermostat Mode Control - Valve Control'))
+                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x01, 0x00], 'Switch Multilevel - Valve = 0%'))
+                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x01, 0x00], 'Switch Multilevel - Valve = 0%'))
+                                zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
+                                zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
+                                zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x01], 'Thermostat Mode Control - Heat'))
+                                if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff']:
+                                    zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x00], 'Thermostat Mode Control - Off'))
+                                self.controlTrvSpiritValveCommandsQueued(trvCtlrDevId, zwaveRawCommandSequence)
+
+                        if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff']:
+                            indigo.thermostat.setHvacMode(trvDevId, value=HVAC_OFF)
+
+            if float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']) > float(self.globals['trvc'][trvCtlrDevId]['temperature']) or hvacFullPower:
+
+                # TRV should be turned on as its temperature is less than target Temperature
+
+                self.controlTrvHeatingOn(trvCtlrDevId)  # TRV calling for heat
+                self.controlHeatingSource(trvCtlrDevId, self.globals['trvc'][trvCtlrDevId]['heatingId'], self.globals['trvc'][trvCtlrDevId]['heatingVarId'])
+
+                if self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_AUTO or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_UI or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_HARDWARE or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_UI:
+
+                    deltaMax = 0.0
+                    if remoteDevId != 0:
+                        deltaMax = float(self.globals['trvc'][trvCtlrDevId]['remoteDeltaMax'])
+
+                    targetHeatSetpoint = float(float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']) + float(deltaMax))  # + deltaMax either remoteDeltaMax, if TRV controlled by remote thermostat or zero
+                    if targetHeatSetpoint > float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMaximum']):
+                        targetHeatSetpoint = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMaximum'])
+
+                    if float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']) != targetHeatSetpoint:
+                        self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'] = targetHeatSetpoint
+
+                    if indigo.devices[trvDevId].heatSetpoint != float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']):
+                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointFlag'] = True
+                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointSequence'] += 1
+                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
+                        indigo.thermostat.setHeatSetpoint(trvDevId, value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))
+                        self.trvHandlerLogger.debug(
+                            f'controlTrv: Turning ON and adjusting TRV Setpoint Heat to \'{float(self.globals["trvc"][trvCtlrDevId]["setpointHeatTrv"])}\'. Z-Wave Pending = {self.globals["trvc"][trvCtlrDevId]["zwavePendingTrvSetpointFlag"]}, Setpoint = \'{self.globals["trvc"][trvCtlrDevId]["zwavePendingTrvSetpointValue"]}\', Sequence = \'{self.globals["trvc"][trvCtlrDevId]["zwavePendingTrvSetpointSequence"]}\'.')
+
+                        indigo.devices[trvCtlrDevId].updateStateOnServer(key='setpointHeatTrv', value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))
+
+                        if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff'] or self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] == HVAC_OFF:
+                            indigo.thermostat.setHvacMode(trvDevId, value=HVAC_HEAT)
+
+                        if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:  # e.g. EUROTronic Spirit Thermostat special logic
+                            if self.globals['trvc'][trvCtlrDevId]['advancedOption'] == ADVANCED_OPTION_VALVE_ASSISTANCE:
+                                self.trvHandlerLogger.debug(f'controlTrv: >>>>>> \'{indigo.devices[trvDevId].name}\' SUPPORTS VALVE CONTROL - OPENING VALVE <<<<<<<<<')
+
+                                zwaveRawCommandSequence = list()
+                                zwaveRawCommandSequence.append((1, 0, [], 'Timer Initialisation'))
+                                zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x1F], 'Thermostat Mode Control - Valve Control'))
+                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x01, 0x63], 'Switch Multilevel - Valve = 100%'))
+                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x01, 0x63], 'Switch Multilevel - Valve = 100%'))
+                                zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
+                                zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
+                                zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x01], 'Thermostat Mode Control - Heat'))
+                                # zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x00], 'Thermostat Mode Control - Off'))
+                                # zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x0F], 'Thermostat Mode Control - boost'))
+                                # zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x01], 'Thermostat Mode Control - Heat'))
+                                self.controlTrvSpiritValveCommandsQueued(trvCtlrDevId, zwaveRawCommandSequence)
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def controlTrvHeatingOff(self, trvCtlrDevId):
+
+        try:
+            try:
+                self.globals['lock'].acquire()
+                if self.globals['trvc'][trvCtlrDevId]['heatingId'] > 0:
+                    self.globals['heaterDevices'][self.globals['trvc'][trvCtlrDevId]['heatingId']]['thermostatsCallingForHeat'].discard(trvCtlrDevId)  # Remove TRV Controller from the SET thermostatsCallingForHeat
+                if self.globals['trvc'][trvCtlrDevId]['heatingVarId'] > 0:
+                    self.globals['heaterVariables'][self.globals['trvc'][trvCtlrDevId]['heatingVarId']]['thermostatsCallingForHeat'].discard(trvCtlrDevId)  # Remove TRV Controller from the SET thermostatsCallingForHeat
+            except Exception as exception_error:
+                self.exception_handler(exception_error, True)  # Log error and display failing statement
+            finally:
+                self.globals['lock'].release()
+
+                indigo.devices[trvCtlrDevId].updateStateOnServer(key='hvacHeaterIsOn', value=False)
+                indigo.devices[trvCtlrDevId].updateStateImageOnServer(indigo.kStateImageSel.HvacHeatMode)  # HvacOff - HvacHeatMode - HvacHeating - HvacAutoMode
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def controlTrvHeatingOn(self, trvCtlrDevId):
+
+        try:
+            try:
+                self.globals['lock'].acquire()
+                if self.globals['trvc'][trvCtlrDevId]['heatingId'] > 0:
+                    self.globals['heaterDevices'][self.globals['trvc'][trvCtlrDevId]['heatingId']]['thermostatsCallingForHeat'].add(trvCtlrDevId)  # Add TRV Controller to the SET thermostatsCallingForHeat
+                if self.globals['trvc'][trvCtlrDevId]['heatingVarId'] > 0:
+                    self.globals['heaterVariables'][self.globals['trvc'][trvCtlrDevId]['heatingVarId']]['thermostatsCallingForHeat'].add(trvCtlrDevId)  # Add TRV Controller to the SET thermostatsCallingForHeat
+                self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] = HVAC_HEAT
+            except Exception as exception_error:
+                self.exception_handler(exception_error, True)  # Log error and display failing statement
+            finally:
+                self.globals['lock'].release()
+
+                indigo.devices[trvCtlrDevId].updateStateOnServer(key='hvacHeaterIsOn', value=True)
+                indigo.devices[trvCtlrDevId].updateStateImageOnServer(indigo.kStateImageSel.HvacHeatMode)  # HvacOff - HvacHeatMode - HvacHeating - HvacAutoMode
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def controlTrvSpiritTriggered(self, trvCtlrDevId, zwaveRawCommandSequence):
+
+        try:
+            spiritValveId = self.globals['trvc'][trvCtlrDevId]['valveDevId']
+            spiritValveDev = indigo.devices[spiritValveId]
+
+            self.trvHandlerLogger.debug(f'controlTrvSpiritTriggered for device \'{spiritValveDev.name}\' with Command Sequence [{len(zwaveRawCommandSequence)}]:\n\n{zwaveRawCommandSequence}\n')
+
+            seconds, targetDeviceId, zwaveRawCommandString, zwaveRawCommandDescription  = zwaveRawCommandSequence.pop(0)  # FIFO List
+            if len(zwaveRawCommandString) > 0:
+                indigo.zwave.sendRaw(device=indigo.devices[targetDeviceId], cmdBytes=zwaveRawCommandString, sendMode=1)
+                self.trvHandlerLogger.debug(f'>>>>>> ZWave Raw Command for device \'{indigo.devices[targetDeviceId].name}\' = {zwaveRawCommandDescription}')
+                if zwaveRawCommandString == [0x40, 0x01, 0x00]:
+                    indigo.thermostat.setHvacMode(targetDeviceId, value=HVAC_OFF)
+                elif zwaveRawCommandString == [0x40, 0x01, 0x01]:
+                    indigo.thermostat.setHvacMode(targetDeviceId, value=HVAC_HEAT)
+            if len(zwaveRawCommandSequence) > 0:
+                delaySeconds = zwaveRawCommandSequence[0][0]
+                self.globals['timers']['SpiritValveCommands'][trvCtlrDevId] = threading.Timer(float(delaySeconds), self.controlTrvSpiritTriggered, [trvCtlrDevId, zwaveRawCommandSequence])
+                self.globals['timers']['SpiritValveCommands'][trvCtlrDevId].setDaemon(True)
+                self.globals['timers']['SpiritValveCommands'][trvCtlrDevId].start()
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def controlTrvSpiritValveCommandsQueued(self, trvCtlrDevId, zwaveRawCommandSequence):
+
+        try:
+            spiritValveId = self.globals['trvc'][trvCtlrDevId]['valveDevId']
+            spiritValveDev = indigo.devices[spiritValveId]
+            self.trvHandlerLogger.debug('controlTrvSpiritQueued')
+
+            if trvCtlrDevId in self.globals['timers']['SpiritValveCommands']:
+                self.globals['timers']['SpiritValveCommands'][trvCtlrDevId].cancel()
+                self.trvHandlerLogger.debug(f'controlTrvSpiritValveCommandsQueued timer cancelled for device \'{spiritValveDev.name}\' with now cancelled Command Sequence:\n{zwaveRawCommandSequence}')
+
+            self.controlTrvSpiritTriggered(trvCtlrDevId, zwaveRawCommandSequence)
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def convertUnicode(self, unicodeInput):
+        if isinstance(unicodeInput, dict):
+            return dict(
+                [(self.convertUnicode(key), self.convertUnicode(value)) for key, value in unicodeInput.items()])
+        elif isinstance(unicodeInput, list):
+            return [self.convertUnicode(element) for element in unicodeInput]
+        elif isinstance(unicodeInput, unicode):
+            return unicodeInput.encode('utf-8')
+        else:
+            return unicodeInput
+
+    def delayCommand(self, trvDelayedCommand, trvCtlrDevId, trvDelayedSeconds, trvDelayedCommandPackage):
+
+        try:
+            self.globals['timers']['command'][trvCtlrDevId] = threading.Timer(float(trvDelayedSeconds), self.delayCommandTimerTriggered, [trvDelayedCommand, trvCtlrDevId, trvDelayedCommandPackage])  # 3,300 seconds = 55 minutes :)
+            self.globals['timers']['command'][trvCtlrDevId].setDaemon(True)
+            self.globals['timers']['command'][trvCtlrDevId].start()
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def delayCommandTimerTriggered(self, trvDelayedCommand, trvCtlrDevId, trvDelayedCommandPackage):
+
+        try:
+            self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, 0, trvDelayedCommand, trvCtlrDevId, trvDelayedCommandPackage])
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    # noinspection PyUnusedLocal
+    def keepHeatSourceControllerAlive(self, heatingId):
+
+        try:
+            self.trvHandlerLogger.debug(f'\'keepHeatSourceControllerAlive\' invoked for:  {indigo.devices[heatingId].model} ...')
+
+            # Only needed for SSR302 / SSR303 - needs updating every 55 minutes
+            if indigo.devices[heatingId].model == "1 Channel Boiler Actuator (SSR303 / ASR-ZW)" or indigo.devices[heatingId].model == "2 Channel Boiler Actuator (SSR302)":
+                self.trvHandlerLogger.debug(
+                    f'\'keepHeatSourceControllerAlive\' invoked for:  {indigo.devices[heatingId].name} - Number of TRVs calling for heat = {len(self.globals["heaterDevices"][heatingId]["thermostatsCallingForHeat"])}')
+                self.globals['lock'].acquire()
+                try:
+                    # if there are thermostats calling for heat, the heating needs to be 'on'
+                    if len(self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']) > 0:
+                        indigo.thermostat.setHvacMode(heatingId, value=HVAC_HEAT)  # remind Heat Source Controller to stay 'on'
+                        self.trvHandlerLogger.debug(f'\'keepHeatSourceControllerAlive\':  Reminding Heat Source Controller {indigo.devices[heatingId].name} to stay \'ON\'')
+                    else:
+                        indigo.thermostat.setHvacMode(heatingId, value=HVAC_OFF)  # remind Heat Source Controller to stay 'off'
+                        self.trvHandlerLogger.debug(f'\'keepHeatSourceControllerAlive\':  Reminding Heat Source Controller {indigo.devices[heatingId].name} to stay \'OFF\'')
+                except Exception as exception_error:
+                    self.exception_handler(exception_error, True)  # Log error and display failing statement
+                finally:
+                    self.globals['lock'].release()
+
+                self.globals['timers']['heaters'][heatingId] = threading.Timer(3300.0, self.keepHeatSourceControllerAliveTimerTriggered, [heatingId])  # 3,300 seconds = 55 minutes :)
+                self.globals['timers']['heaters'][heatingId].setDaemon(True)
+                self.globals['timers']['heaters'][heatingId].start()
+            else:
+                self.trvHandlerLogger.debug(f'... {indigo.devices[heatingId].model} doesn\'t need to be kept alive!')
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def keepHeatSourceControllerAliveTimerTriggered(self, heatingId):
+
+        try:
+            self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, 0, CMD_KEEP_HEAT_SOURCE_CONTROLLER_ALIVE, None, [heatingId, ]])
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def pollSpiritActioned(self, trvCtlrDevId):
+
+        try:
+            pollingSeconds = float(self.globals['trvc'][trvCtlrDevId]['pollingSeconds'])
+
+            trvDevId = self.globals['trvc'][trvCtlrDevId]['trvDevId']
+            valveDevId = self.globals['trvc'][trvCtlrDevId]['valveDevId']
+
+            self.trvHandlerLogger.debug(f'pollSpiritActioned: Polling \'{indigo.devices[trvDevId].name}\' Spirit Thermostat every {int(pollingSeconds)} seconds.')
+
+            indigo.device.statusRequest(trvDevId)  # Request Spirit Thermostat status
+
+            if valveDevId != 0:
+                indigo.device.statusRequest(valveDevId)  # Request Spirit Valve status
+
+            self.globals['timers']['SpiritPolling'][trvCtlrDevId] = threading.Timer(pollingSeconds, self.pollSpiritTriggered, [trvCtlrDevId])  # Initiate next poll
+            self.globals['timers']['SpiritPolling'][trvCtlrDevId].setDaemon(True)
+            self.globals['timers']['SpiritPolling'][trvCtlrDevId].start()
+
+            self.trvHandlerLogger.debug(f'pollSpiritActioned: Polling \'{indigo.devices[trvDevId].name}\' Spirit Thermostat every {int(pollingSeconds)} seconds.')
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def pollSpiritTriggered(self, trvCtlrDevId):
+
+        try:
+            if trvCtlrDevId in self.globals['timers']['SpiritPolling']:
+                self.globals['timers']['SpiritPolling'][trvCtlrDevId].cancel()
+                del self.globals['timers']['SpiritPolling'][trvCtlrDevId]
+
+            if self.globals['config']['delayQueueSeconds'] == 0:
+                self.pollSpiritActioned(trvCtlrDevId)
+            else:
+                # self.globals['trvc'][trvCtlrDevId]['pollingSequence'] += 1
+                # self.globals['queues']['delayHandler'].put([CMD_ACTION_POLL, trvCtlrDevId, self.globals['trvc'][trvCtlrDevId]['pollingSequence']])
+                self.globals['queues']['delayHandler'].put([CMD_ACTION_POLL, trvCtlrDevId])
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
     def processAdvance(self, trvCtlrDevId, advanceType):
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-        
-            self.trvHandlerLogger.debug(u'Method: processAdvance')
-
-            self.trvHandlerLogger.debug(u'processAdvance [0]: Type = [{}]\nRunning:\n{}\n\nDynamic:\n{}\n\n'.format(ADVANCE_TRANSLATION[advanceType], self.globals['schedules'][trvCtlrDevId]['running'], self.globals['schedules'][trvCtlrDevId]['dynamic']))
+            self.trvHandlerLogger.debug(
+                f'processAdvance [0]: Type = [{ADVANCE_TRANSLATION[advanceType]}]\nRunning:\n{self.globals["schedules"][trvCtlrDevId]["running"]}\n\nDynamic:\n{self.globals["schedules"][trvCtlrDevId]["dynamic"]}\n\n')
             
             if trvCtlrDevId in self.globals['timers']['heatingSchedules']:  # Cancel any existing heating schedule timer
                 self.globals['timers']['heatingSchedules'][trvCtlrDevId].cancel()
@@ -267,19 +671,18 @@ class ThreadTrvHandler(threading.Thread):
 
             trvcDev = indigo.devices[trvCtlrDevId]
 
-            initialiseHeatingSheduleLog = u'\n\n{}'.format('|'*80)
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||  Device: {}\n||  Method: processAdvance [BEFORE]'.format(indigo.devices[trvCtlrDevId].name)
+            initialiseHeatingScheduleLog = f'\n\n{"|" * 80}'
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||  Device: {indigo.devices[trvCtlrDevId].name}\n||  Method: processAdvance [BEFORE]'
             for key, value in scheduleList.items():
-                scheduleTime = int(key)
-                scheduleTimeUi = u'{}'.format(value[0])
+                # scheduleTime = int(key)
+                scheduleTimeUi = f'{value[0]}'
                 scheduleSetpoint = float(value[1])
                 scheduleId = int(value[2])
-                scheduleActive = bool(value[3])
-                initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||  Time = {}, Setpoint = {}, Id = {}'.format(scheduleTimeUi, scheduleSetpoint, scheduleId)
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||  ScheduleList Length = {}, ScheduleList Type = {}'.format(len(scheduleList), type(scheduleList))
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n{}\n\n'.format('||'*80)
-            self.trvHandlerLogger.debug(initialiseHeatingSheduleLog)
-
+                # scheduleActive = bool(value[3])
+                initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||  Time = {scheduleTimeUi}, Setpoint = {scheduleSetpoint}, Id = {scheduleId}'
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||  ScheduleList Length = {len(scheduleList)}, ScheduleList Type = {type(scheduleList)}'
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n{"||" * 80}\n\n'
+            self.trvHandlerLogger.debug(initialiseHeatingScheduleLog)
 
             ct = int(datetime.datetime.now().strftime('%H%M%S'))
 
@@ -306,30 +709,31 @@ class ThreadTrvHandler(threading.Thread):
             scheduleListAdvancedCheck = scheduleList.copy()
 
             for key, value in scheduleListAdvancedCheck.items():
-                if key > ct and key < scheduleKeyNext:
+                if ct < key < scheduleKeyNext:
                     del scheduleList[key]
 
-            initialiseHeatingSheduleLog = u'\n\n{}'.format('|'*80)
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||  Device: {}\n||  Method: processAdvance [AFTER]'.format(indigo.devices[trvCtlrDevId].name)
+            initialiseHeatingScheduleLog = f'\n\n{"|" * 80}'
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||  Device: {indigo.devices[trvCtlrDevId].name}\n||  Method: processAdvance [AFTER]'
             for key, value in scheduleList.items():
-                scheduleTime = int(key)
-                scheduleTimeUi = u'{}'.format(value[0])
+                # scheduleTime = int(key)
+                scheduleTimeUi = f'{value[0]}'
                 scheduleSetpoint = float(value[1])
                 scheduleId = int(value[2])
-                scheduleActive = bool(value[3])
-                initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||  Time = {}, Setpoint = {}, Id = {}'.format(scheduleTimeUi, scheduleSetpoint, scheduleId)
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||\n|| Type={}, CT={}, Prev={}, Next={}'.format(ADVANCE_TRANSLATION[advanceType], ct, scheduleKeyPrevious, scheduleKeyNext)
+                # scheduleActive = bool(value[3])
+                initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||  Time = {scheduleTimeUi}, Setpoint = {scheduleSetpoint}, Id = {scheduleId}'
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||\n|| Type={ADVANCE_TRANSLATION[advanceType]}, CT={ct}, Prev={scheduleKeyPrevious}, Next={scheduleKeyNext}'
 
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||  ScheduleList Length = {}, ScheduleList Type = {}'.format(len(scheduleList), type(scheduleList))
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n{}\n\n'.format('||'*80)
-            self.trvHandlerLogger.debug(initialiseHeatingSheduleLog)
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||  ScheduleList Length = {len(scheduleList)}, ScheduleList Type = {type(scheduleList)}'
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n{"||" * 80}\n\n'
+            self.trvHandlerLogger.debug(initialiseHeatingScheduleLog)
 
-            previousSchedule = 0
+            # previousSchedule = 0
             nextSchedule = 0
 
             for key, value in scheduleList.items():
                 if key <= ct:
-                    previousSchedule = key
+                    pass
+                    # previousSchedule = key
                 else:
                     if key == 240000 and nextSchedule == 0:
                         nextSchedule = 240000
@@ -338,14 +742,14 @@ class ThreadTrvHandler(threading.Thread):
                             nextSchedule = key
 
             if nextSchedule == 240000:
-                self.trvHandlerLogger.info(u'TRV Controller \'{}\' - No further schedule to \'Advance\' to - Advance not actioned!'.format(trvcDev.name))
+                self.trvHandlerLogger.info(f'TRV Controller \'{trvcDev.name}\' - No further schedule to \'Advance\' to - Advance not actioned!')
                 return
 
-            ctTemp = '0{}'.format(ct)[-6:]  # e.g 91045 > 091045
-            ctUi = '{}:{}'.format(ctTemp[0:2], ctTemp[2:4]) # e.g. 09:10 
+            ctTemp = f'0{ct}'[-6:]  # e.g 91045 > 091045
+            ctUi = f'{ctTemp[0:2]}:{ctTemp[2:4]}'  # e.g. 09:10
 
             schedule = scheduleList[nextSchedule]
-            scheduleTimeUi = u'{}'.format(schedule[0])
+            scheduleTimeUi = f'{schedule[0]}'
             scheduleSetpoint = float(schedule[1])
             scheduleId = int(schedule[2])
             scheduleActive = bool(schedule[3])
@@ -357,11 +761,10 @@ class ThreadTrvHandler(threading.Thread):
 
             self.globals['schedules'][trvCtlrDevId]['dynamic'] = collections.OrderedDict(sorted(scheduleList.items())).copy()
 
-            self.trvHandlerLogger.debug(u'processAdvance [2]:\nRunning:\n{}\n\nDynamic:\n{}\n\n'.format(self.globals['schedules'][trvCtlrDevId]['running'], self.globals['schedules'][trvCtlrDevId]['dynamic']))
-            
+            self.trvHandlerLogger.debug(f'processAdvance [2]:\nRunning:\n{self.globals["schedules"][trvCtlrDevId]["running"]}\n\nDynamic:\n{self.globals["schedules"][trvCtlrDevId]["dynamic"]}\n\n')
 
             self.globals['trvc'][trvCtlrDevId]['advanceActive'] = True
-            self.globals['trvc'][trvCtlrDevId]['advanceStatusUi'] = 'Advanced to S{} \'{} at {}\' at {}'.format(scheduleId,  scheduleActiveUi, scheduleTimeUi, ctUi)
+            self.globals['trvc'][trvCtlrDevId]['advanceStatusUi'] = f'Advanced to S{scheduleId} \'{scheduleActiveUi} at {scheduleTimeUi}\' at {ctUi}'
             self.globals['trvc'][trvCtlrDevId]['advanceActivatedTime'] = ctUi
             self.globals['trvc'][trvCtlrDevId]['advanceToScheduleTime'] = scheduleTimeUi
 
@@ -373,12 +776,12 @@ class ThreadTrvHandler(threading.Thread):
                 ]
             indigo.devices[trvCtlrDevId].updateStatesOnServer(keyValueList)
 
-            self.trvHandlerLogger.info(u'TRV Controller \'{}\' - {}'.format(trvcDev.name, self.globals['trvc'][trvCtlrDevId]['advanceStatusUi']))
+            self.trvHandlerLogger.info(f'TRV Controller \'{trvcDev.name}\' - {self.globals["trvc"][trvCtlrDevId]["advanceStatusUi"]}')
 
             # Set Timer to cancel advance when next schedule time reached
             secondsToNextSchedule, calcSecondsLog = calcSeconds(nextSchedule, ct)
 
-            self.trvHandlerLogger.debug(u'processAdvance [3]: Seconds To Next Schedule = \'{}\'\n{}'.format(secondsToNextSchedule, calcSecondsLog))
+            self.trvHandlerLogger.debug(f'processAdvance [3]: Seconds To Next Schedule = \'{secondsToNextSchedule}\'\n{calcSecondsLog}')
 
             self.globals['timers']['advanceCancel'][trvCtlrDevId] = threading.Timer(float(secondsToNextSchedule), self.processAdvanceCancel, [trvCtlrDevId, False])
             self.globals['timers']['advanceCancel'][trvCtlrDevId].setDaemon(True)
@@ -386,24 +789,25 @@ class ThreadTrvHandler(threading.Thread):
 
             self.processHeatingSchedule(trvCtlrDevId)
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in \'processAdvance\'. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
     def processAdvanceCancel(self, trvCtlrDevId, invokeProcessHeatingSchedule):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
             if self.globals['trvc'][trvCtlrDevId]['advanceActive']:
 
                 if trvCtlrDevId in self.globals['timers']['advanceCancel']:  # Cancel any existing advance cancel timer
                     self.globals['timers']['advanceCancel'][trvCtlrDevId].cancel()
 
-                self.trvHandlerLogger.debug(u'processAdvanceCancel [1]:\nRunning:\n{}\n\nDynamic:\n{}\n\n'.format(self.globals['schedules'][trvCtlrDevId]['running'], self.globals['schedules'][trvCtlrDevId]['dynamic']))
-                
-                self.globals['schedules'][trvCtlrDevId]['dynamic'] = collections.OrderedDict(sorted(self.globals['schedules'][trvCtlrDevId]['running'].items())).copy()  # Reset Schedule to previous running state
+                self.trvHandlerLogger.debug(
+                    f'processAdvanceCancel [1]:\nRunning:\n{self.globals["schedules"][trvCtlrDevId]["running"]}\n\nDynamic:\n{self.globals["schedules"][trvCtlrDevId]["dynamic"]}\n\n')
 
-                self.trvHandlerLogger.debug(u'processAdvanceCancel [2]:\nRunning:\n{}\n\nDynamic:\n{}\n\n'.format(self.globals['schedules'][trvCtlrDevId]['running'], self.globals['schedules'][trvCtlrDevId]['dynamic']))
+                # Reset Schedule to previous running state
+                self.globals['schedules'][trvCtlrDevId]['dynamic'] = collections.OrderedDict(sorted(self.globals['schedules'][trvCtlrDevId]['running'].items())).copy()
+
+                self.trvHandlerLogger.debug(
+                    f'processAdvanceCancel [2]:\nRunning:\n{self.globals["schedules"][trvCtlrDevId]["running"]}\n\nDynamic:\n{self.globals["schedules"][trvCtlrDevId]["dynamic"]}\n\n')
 
                 self.globals['trvc'][trvCtlrDevId]['advanceActive'] = False
                 self.globals['trvc'][trvCtlrDevId]['advanceStatusUi'] = ''
@@ -421,15 +825,13 @@ class ThreadTrvHandler(threading.Thread):
                 if invokeProcessHeatingSchedule:
                     self.processHeatingSchedule(trvCtlrDevId)
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in \'processAdvanceCancel\'. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
     def processBoost(self, trvCtlrDevId, boostMode, boostDeltaT, boostSetpoint, boostMinutes):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            self.trvHandlerLogger.debug(u'Boost invoked for Thermostat \'{}\': DeltaT = \'{}\', Minutes = \'{}\''.format(indigo.devices[trvCtlrDevId].name, boostDeltaT, boostMinutes)) 
+            self.trvHandlerLogger.debug(f'Boost invoked for Thermostat \'{indigo.devices[trvCtlrDevId].name}\': DeltaT = \'{boostDeltaT}\', Minutes = \'{boostMinutes}\'')
 
             self.processAdvanceCancel(trvCtlrDevId, False)
             self.processExtendCancel(trvCtlrDevId, False)
@@ -443,69 +845,66 @@ class ThreadTrvHandler(threading.Thread):
             self.globals['trvc'][trvCtlrDevId]['boostSetpointToRestore'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeat'])
             self.globals['trvc'][trvCtlrDevId]['boostSetpointInvokeRestore'] = False  # Gets set to True when Boost is cancelled
 
-
             startTime = datetime.datetime.now()
-            endTime = startTime + datetime.timedelta(minutes= self.globals['trvc'][trvCtlrDevId]['boostMinutes'])
+            endTime = startTime + datetime.timedelta(minutes=self.globals['trvc'][trvCtlrDevId]['boostMinutes'])
 
             self.globals['trvc'][trvCtlrDevId]['boostTimeStart'] = startTime.strftime('%H:%M')
             self.globals['trvc'][trvCtlrDevId]['boostTimeEnd'] = endTime.strftime('%H:%M')
-            self.globals['trvc'][trvCtlrDevId]['boostStatusUi'] = '{} - {}'.format(self.globals['trvc'][trvCtlrDevId]['boostTimeStart'], self.globals['trvc'][trvCtlrDevId]['boostTimeEnd'])
+            self.globals['trvc'][trvCtlrDevId]['boostStatusUi'] = f'{self.globals["trvc"][trvCtlrDevId]["boostTimeStart"]} - {self.globals["trvc"][trvCtlrDevId]["boostTimeEnd"]}'
 
             if self.globals['trvc'][trvCtlrDevId]['boostMode'] == BOOST_MODE_DELTA_T:
-                self.globals['trvc'][trvCtlrDevId]['boostStatusUi'] = '{} [DeltaT = +{}]'.format(self.globals['trvc'][trvCtlrDevId]['boostStatusUi'], self.globals['trvc'][trvCtlrDevId]['boostDeltaT']) 
+                self.globals['trvc'][trvCtlrDevId]['boostStatusUi'] = f'{self.globals["trvc"][trvCtlrDevId]["boostStatusUi"]} [DeltaT = +{self.globals["trvc"][trvCtlrDevId]["boostDeltaT"]}]'
                 newSetpoint = float(self.globals['trvc'][trvCtlrDevId]['temperature']) + float(boostDeltaT)
                 if newSetpoint > float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMaximum']):
                     newSetpoint = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMaximum'])
             else:  # BOOST_MODE_SETPOINT
                 newSetpoint = float(self.globals['trvc'][trvCtlrDevId]['boostSetpoint'])                
-                self.globals['trvc'][trvCtlrDevId]['boostStatusUi'] = '{} [Setpoint = {}]'.format(self.globals['trvc'][trvCtlrDevId]['boostStatusUi'], newSetpoint) 
+                self.globals['trvc'][trvCtlrDevId]['boostStatusUi'] = f'{self.globals["trvc"][trvCtlrDevId]["boostStatusUi"]} [Setpoint = {newSetpoint}]'
 
-            keyValueList = [
-            {'key': 'boostActive', 'value': bool(self.globals['trvc'][trvCtlrDevId]['boostActive'])},
-            {'key': 'boostMode', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostMode'])},
-            {'key': 'boostModeUi', 'value': self.globals['trvc'][trvCtlrDevId]['boostModeUi']},
-            {'key': 'boostStatusUi', 'value': self.globals['trvc'][trvCtlrDevId]['boostStatusUi']},
-            {'key': 'boostDeltaT', 'value': float(self.globals['trvc'][trvCtlrDevId]['boostDeltaT'])},
-            {'key': 'boostSetpoint', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostSetpoint'])},
-            {'key': 'boostMinutes', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostMinutes'])},
-            {'key': 'boostTimeStart', 'value': self.globals['trvc'][trvCtlrDevId]['boostTimeStart']},
-            {'key': 'boostTimeEnd', 'value': self.globals['trvc'][trvCtlrDevId]['boostTimeEnd']},
-            {'key': 'controllerMode', 'value': CONTROLLER_MODE_UI},
-            {'key': 'controllerModeUi', 'value':  CONTROLLER_MODE_TRANSLATION[CONTROLLER_MODE_UI]},
-            {'key': 'setpointHeat', 'value': newSetpoint}
-                ]
+            keyValueList = [{'key': 'boostActive', 'value': bool(self.globals['trvc'][trvCtlrDevId]['boostActive'])},
+                            {'key': 'boostMode', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostMode'])},
+                            {'key': 'boostModeUi', 'value': self.globals['trvc'][trvCtlrDevId]['boostModeUi']},
+                            {'key': 'boostStatusUi', 'value': self.globals['trvc'][trvCtlrDevId]['boostStatusUi']},
+                            {'key': 'boostDeltaT', 'value': float(self.globals['trvc'][trvCtlrDevId]['boostDeltaT'])},
+                            {'key': 'boostSetpoint', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostSetpoint'])},
+                            {'key': 'boostMinutes', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostMinutes'])},
+                            {'key': 'boostTimeStart', 'value': self.globals['trvc'][trvCtlrDevId]['boostTimeStart']},
+                            {'key': 'boostTimeEnd', 'value': self.globals['trvc'][trvCtlrDevId]['boostTimeEnd']},
+                            {'key': 'controllerMode', 'value': CONTROLLER_MODE_UI},
+                            {'key': 'controllerModeUi', 'value':  CONTROLLER_MODE_TRANSLATION[CONTROLLER_MODE_UI]},
+                            {'key': 'setpointHeat', 'value': newSetpoint}]
             indigo.devices[trvCtlrDevId].updateStatesOnServer(keyValueList)
 
             self.globals['timers']['boost'][trvCtlrDevId] = threading.Timer(float(boostMinutes * 60), self.boostCancelTriggered, [trvCtlrDevId, True])
             self.globals['timers']['boost'][trvCtlrDevId].setDaemon(True)
             self.globals['timers']['boost'][trvCtlrDevId].start()
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [processBoost]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+            if self.globals['trvc'][trvCtlrDevId]['pollingBoostEnabled'] != 0.0:
+                # Initiate polling sequence and force immediate status update
+                self.globals['trvc'][trvCtlrDevId]['pollingSeconds'] = float(self.globals['trvc'][trvCtlrDevId]['pollingBoostEnabled'])
+                self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, 0, CMD_TRIGGER_POLL, trvCtlrDevId, []])
 
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
     def processBoostCancel(self, trvCtlrDevId, invokeProcessHeatingSchedule):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
             self.boostCancelTriggered(trvCtlrDevId, invokeProcessHeatingSchedule)
             
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [boostCancelTriggered]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
     def boostCancelTriggered(self, trvCtlrDevId, invokeProcessHeatingSchedule):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
             if self.globals['trvc'][trvCtlrDevId]['boostActive']:
 
                 if trvCtlrDevId in self.globals['timers']['boost']:
                     self.globals['timers']['boost'][trvCtlrDevId].cancel()
-                    self.trvHandlerLogger.debug(u'boostCancelTriggered timer cancelled for device \'{}\''.format(indigo.devices[trvCtlrDevId].name))
+                    self.trvHandlerLogger.debug(f'boostCancelTriggered timer cancelled for device \'{indigo.devices[trvCtlrDevId].name}\'')
 
-                self.trvHandlerLogger.debug(u'Boost CANCEL processed for Thermostat \'{}\''.format(indigo.devices[trvCtlrDevId].name)) 
+                self.trvHandlerLogger.debug(f'Boost CANCEL processed for Thermostat \'{indigo.devices[trvCtlrDevId].name}\'')
 
                 self.globals['trvc'][trvCtlrDevId]['boostActive'] = False
                 self.globals['trvc'][trvCtlrDevId]['boostMode'] = BOOST_MODE_INACTIVE
@@ -517,32 +916,29 @@ class ThreadTrvHandler(threading.Thread):
                 self.globals['trvc'][trvCtlrDevId]['boostTimeEnd'] = 'Inactive'
                 self.globals['trvc'][trvCtlrDevId]['boostStatusUi'] = ''
 
-                keyValueList = [
-                {'key': 'boostActive', 'value': bool(self.globals['trvc'][trvCtlrDevId]['boostActive'])},
-                {'key': 'boostMode', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostMode'])},
-                {'key': 'boostModeUi', 'value': self.globals['trvc'][trvCtlrDevId]['boostModeUi']},
-                {'key': 'boostStatusUi', 'value': self.globals['trvc'][trvCtlrDevId]['boostStatusUi']},
-                {'key': 'boostDeltaT', 'value': float(self.globals['trvc'][trvCtlrDevId]['boostDeltaT'])},
-                {'key': 'boostSetpoint', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostSetpoint'])},
-                {'key': 'boostMinutes', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostMinutes'])},
-                {'key': 'boostTimeStart', 'value': self.globals['trvc'][trvCtlrDevId]['boostTimeStart']},
-                {'key': 'boostTimeEnd', 'value': self.globals['trvc'][trvCtlrDevId]['boostTimeEnd']}
-                    ]
+                keyValueList = [{'key': 'boostActive', 'value': bool(self.globals['trvc'][trvCtlrDevId]['boostActive'])},
+                                {'key': 'boostMode', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostMode'])},
+                                {'key': 'boostModeUi', 'value': self.globals['trvc'][trvCtlrDevId]['boostModeUi']},
+                                {'key': 'boostStatusUi', 'value': self.globals['trvc'][trvCtlrDevId]['boostStatusUi']},
+                                {'key': 'boostDeltaT', 'value': float(self.globals['trvc'][trvCtlrDevId]['boostDeltaT'])},
+                                {'key': 'boostSetpoint', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostSetpoint'])},
+                                {'key': 'boostMinutes', 'value': int(self.globals['trvc'][trvCtlrDevId]['boostMinutes'])},
+                                {'key': 'boostTimeStart', 'value': self.globals['trvc'][trvCtlrDevId]['boostTimeStart']},
+                                {'key': 'boostTimeEnd', 'value': self.globals['trvc'][trvCtlrDevId]['boostTimeEnd']}]
                 indigo.devices[trvCtlrDevId].updateStatesOnServer(keyValueList)
 
                 if invokeProcessHeatingSchedule:
                     self.globals['trvc'][trvCtlrDevId]['boostSetpointInvokeRestore'] = True
                     self.processHeatingSchedule(trvCtlrDevId)
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [boostCancelTriggered]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
     def processExtend(self, trvCtlrDevId, extendIncrementMinutes, extendMaximumMinutes):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            self.trvHandlerLogger.debug(u'Extend processed for Thermostat \'{}\': Increment Minutes = \'{}\', Maximum Minutes = \'{}\''.format(indigo.devices[trvCtlrDevId].name, extendIncrementMinutes, extendMaximumMinutes)) 
+            self.trvHandlerLogger.debug(
+                f'Extend processed for Thermostat \'{indigo.devices[trvCtlrDevId].name}\': Increment Minutes = \'{extendIncrementMinutes}\', Maximum Minutes = \'{extendMaximumMinutes}\'')
 
             self.processAdvanceCancel(trvCtlrDevId, False)
             self.processBoostCancel(trvCtlrDevId, False)
@@ -555,50 +951,50 @@ class ThreadTrvHandler(threading.Thread):
                 self.processExtendCancel(trvCtlrDevId, True)
                 return
 
-            self.trvHandlerLogger.debug(u'processAdvance [0]:\nRunning:\n{}\n\nDynamic:\n{}\n\n'.format(self.globals['schedules'][trvCtlrDevId]['running'], self.globals['schedules'][trvCtlrDevId]['dynamic']))
+            self.trvHandlerLogger.debug(f'processAdvance [0]:\nRunning:\n{self.globals["schedules"][trvCtlrDevId]["running"]}\n\nDynamic:\n{self.globals["schedules"][trvCtlrDevId]["dynamic"]}\n\n')
 
             scheduleList = self.globals['schedules'][trvCtlrDevId]['running'].copy()
 
-            trvcDev = indigo.devices[trvCtlrDevId]
+            # trvcDev = indigo.devices[trvCtlrDevId]
 
-            initialiseHeatingSheduleLog = u'\n\n{}'.format('|'*80)
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||  Device: {}\n||  Method: processExtend'.format(indigo.devices[trvCtlrDevId].name)
+            initialiseHeatingScheduleLog = f'\n\n{"|" * 80}'
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||  Device: {indigo.devices[trvCtlrDevId].name}\n||  Method: processExtend'
             for key, value in scheduleList.items():
-                scheduleTime = int(key)
-                scheduleTimeUi = u'{}'.format(value[SCHEDULE_TIME_UI])
+                # scheduleTime = int(key)
+                scheduleTimeUi = f'{value[SCHEDULE_TIME_UI]}'
                 scheduleSetpoint = float(value[SCHEDULE_SETPOINT])
                 scheduleId = int(value[SCHEDULE_ID])
-                scheduleActive = bool(value[SCHEDULE_ACTIVE])
-                initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||  Time = {}, Setpoint = {}, Id = {}'.format(scheduleTimeUi, scheduleSetpoint, scheduleId)
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n||  ScheduleList Length = {}, ScheduleList Type = {}'.format(len(scheduleList), type(scheduleList))
+                # scheduleActive = bool(value[SCHEDULE_ACTIVE])
+                initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||  Time = {scheduleTimeUi}, Setpoint = {scheduleSetpoint}, Id = {scheduleId}'
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n||  ScheduleList Length = {len(scheduleList)}, ScheduleList Type = {type(scheduleList)}'
 
             ct = int(datetime.datetime.now().strftime('%H%M%S'))
 
-            def calcExtension(nextSchedule, nextSchedulePlusOne, extendMinutes):
+            def calcExtension(nextSchedule, _nextSchedulePlusOne, _extendMinutes):
 
-                def evalExtensionSeconds(et): # e.g.: 141545
-                    etHH = et / 10000  # e.g.: 14
-                    etTemp = et % 10000 # e.g. 1545
-                    etMM = etTemp / 100 # e.g.: 15
+                def evalExtensionSeconds(et):  # e.g.: 141545
+                    etHH = et // 10000  # e.g.: 14
+                    etTemp = et % 10000  # e.g. 1545
+                    etMM = etTemp // 100  # e.g.: 15
                     etSS = etTemp % 100  # e.g.: 45
                     etSeconds = (etHH * 3600) + (etMM * 60) + etSS
                     return etSeconds
 
                 nextScheduleSeconds = evalExtensionSeconds(nextSchedule)
-                nextSchedulePlusOneSeconds = evalExtensionSeconds(nextSchedulePlusOne)
+                nextSchedulePlusOneSeconds = evalExtensionSeconds(_nextSchedulePlusOne)
                 nextScheduleTimeLimitSeconds = nextSchedulePlusOneSeconds - 300  # Minus 5 minutes
 
                 limitFlag = False
 
-                extendedScheduleSeconds = nextScheduleSeconds + (extendMinutes * 60)
+                extendedScheduleSeconds = nextScheduleSeconds + (_extendMinutes * 60)
 
                 if extendedScheduleSeconds > nextScheduleTimeLimitSeconds:
                     extendedScheduleSeconds = nextScheduleTimeLimitSeconds
                     limitFlag = True
 
-                extendedScheduleTimeHH = extendedScheduleSeconds / 3600
+                extendedScheduleTimeHH = extendedScheduleSeconds // 3600
                 extendedScheduleTimeTemp = extendedScheduleSeconds % 3600
-                extendedScheduleTimeMM = extendedScheduleTimeTemp / 60
+                extendedScheduleTimeMM = extendedScheduleTimeTemp // 60
                 extendedScheduleTimeSS = extendedScheduleTimeTemp % 60
                 extendedScheduleTime = (extendedScheduleTimeHH * 10000) + (extendedScheduleTimeMM * 100) + extendedScheduleTimeSS
 
@@ -607,20 +1003,20 @@ class ThreadTrvHandler(threading.Thread):
             currentScheduleTime = max(k for k in scheduleList if k <= ct)
             currentSchedule = scheduleList[currentScheduleTime]
             currentScheduleActiveUi = 'Start' if bool(currentSchedule[SCHEDULE_ACTIVE]) else 'End'
-            currentScheduleId = int(currentSchedule[SCHEDULE_ID])
-
+            # currentScheduleId = int(currentSchedule[SCHEDULE_ID])
 
             originalNextScheduleTime = min(k for k in scheduleList if k >= ct)
             if originalNextScheduleTime == 240000:
-                self.trvHandlerLogger.info(u'Extend request for \'{}\' ignored; Can\'t  Extend beyond end-of-day (24:00)'.format(indigo.devices[trvCtlrDevId].name))
+                self.trvHandlerLogger.info(f'Extend request for \'{indigo.devices[trvCtlrDevId].name}\' ignored; Can\'t  Extend beyond end-of-day (24:00)')
                 return
             else:
-                nextSchedulePlusOne =  min(k for k in scheduleList if k > originalNextScheduleTime)
+                nextSchedulePlusOne = min(k for k in scheduleList if k > originalNextScheduleTime)
             extendedNextScheduleTime, self.globals['trvc'][trvCtlrDevId]['extendLimitReached'] = calcExtension(originalNextScheduleTime, nextSchedulePlusOne, extendMinutes)
 
-            self.trvHandlerLogger.debug(u'processExtend: Original Next Schedule Time = \'{}\', Next Schedule Plus One Time =  \'{}\', Extend Minutes Reached = \'{}\', Extended Next Schedule Time = \'{}\', Extend Limit = {}'.format(originalNextScheduleTime, nextSchedulePlusOne, extendMinutes, extendedNextScheduleTime, self.globals['trvc'][trvCtlrDevId]['extendLimitReached']))            
+            self.trvHandlerLogger.debug(
+                f'processExtend: Original Next Schedule Time = \'{originalNextScheduleTime}\', Next Schedule Plus One Time =  \'{nextSchedulePlusOne}\', Extend Minutes Reached = \'{extendMinutes}\', Extended Next Schedule Time = \'{extendedNextScheduleTime}\', Extend Limit = {self.globals["trvc"][trvCtlrDevId]["extendLimitReached"]}')
 
-            extendedPreviousScheduleTime = max(k for k in scheduleList if k <= extendedNextScheduleTime)
+            # extendedPreviousScheduleTime = max(k for k in scheduleList if k <= extendedNextScheduleTime)
 
             originalNextSchedule = scheduleList[originalNextScheduleTime]
             extendedNextScheduleSetpoint = float(originalNextSchedule[SCHEDULE_SETPOINT])
@@ -628,11 +1024,11 @@ class ThreadTrvHandler(threading.Thread):
             extendedNextScheduleScheduleActive = bool(originalNextSchedule[SCHEDULE_ACTIVE])
             extendedNextScheduleScheduleActiveUi = 'Start' if extendedNextScheduleScheduleActive else 'End'
 
-            originalNextScheduleTimeWork = '0{}'.format(originalNextScheduleTime)[-6:]
-            originalNextScheduleTimeUi = '{}:{}'.format(originalNextScheduleTimeWork[0:2], originalNextScheduleTimeWork[2:4])
+            originalNextScheduleTimeWork = f'0{originalNextScheduleTime}'[-6:]
+            originalNextScheduleTimeUi = f'{originalNextScheduleTimeWork[0:2]}:{originalNextScheduleTimeWork[2:4]}'
 
-            extendedNextScheduleTimeWork = '0{}'.format(extendedNextScheduleTime)[-6:]
-            extendedNextScheduleTimeUi = '{}:{}'.format(extendedNextScheduleTimeWork[0:2], extendedNextScheduleTimeWork[2:4])
+            extendedNextScheduleTimeWork = f'0{extendedNextScheduleTime}'[-6:]
+            extendedNextScheduleTimeUi = f'{extendedNextScheduleTimeWork[0:2]}:{extendedNextScheduleTimeWork[2:4]}'
 
             del scheduleList[originalNextScheduleTime]
 
@@ -640,10 +1036,10 @@ class ThreadTrvHandler(threading.Thread):
 
             self.globals['schedules'][trvCtlrDevId]['dynamic'] = collections.OrderedDict(sorted(scheduleList.items())).copy()
 
-            self.trvHandlerLogger.debug(u'processExtend [1]:\nRunning:\n{}\n\nDynamic:\n{}\n\n'.format(self.globals['schedules'][trvCtlrDevId]['running'], self.globals['schedules'][trvCtlrDevId]['dynamic']))
+            self.trvHandlerLogger.debug(f'processExtend [1]:\nRunning:\n{self.globals["schedules"][trvCtlrDevId]["running"]}\n\nDynamic:\n{self.globals["schedules"][trvCtlrDevId]["dynamic"]}\n\n')
             
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n{}\n\n'.format('||'*80)
-            self.trvHandlerLogger.debug(initialiseHeatingSheduleLog)
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n{"||" * 80}\n\n'
+            self.trvHandlerLogger.debug(initialiseHeatingScheduleLog)
 
             self.globals['trvc'][trvCtlrDevId]['extendActive'] = True
 
@@ -657,7 +1053,7 @@ class ThreadTrvHandler(threading.Thread):
             self.globals['trvc'][trvCtlrDevId]['extendScheduleOriginalTime'] = originalNextScheduleTimeUi
             self.globals['trvc'][trvCtlrDevId]['extendScheduleNewTime'] = extendedNextScheduleTimeUi
 
-            self.globals['trvc'][trvCtlrDevId]['extendStatusUi'] = 'S{} \'{} at {} => {}\' at {}'.format(extendedNextScheduleScheduleId, extendedNextScheduleScheduleActiveUi, self.globals['trvc'][trvCtlrDevId]['extendScheduleOriginalTime'], self.globals['trvc'][trvCtlrDevId]['extendScheduleNewTime'], self.globals['trvc'][trvCtlrDevId]['extendActivatedTime'])
+            self.globals['trvc'][trvCtlrDevId]['extendStatusUi'] = f'S{extendedNextScheduleScheduleId} \'{extendedNextScheduleScheduleActiveUi} at {self.globals["trvc"][trvCtlrDevId]["extendScheduleOriginalTime"]} => {self.globals["trvc"][trvCtlrDevId]["extendScheduleNewTime"]}\' at {self.globals["trvc"][trvCtlrDevId]["extendActivatedTime"]}'
             keyValueList = [
                     {'key': 'extendActive', 'value': self.globals['trvc'][trvCtlrDevId]['extendActive']},
                     {'key': 'extendActivatedTime', 'value': self.globals['trvc'][trvCtlrDevId]['extendActivatedTime']},
@@ -670,25 +1066,26 @@ class ThreadTrvHandler(threading.Thread):
                 ]
             indigo.devices[trvCtlrDevId].updateStatesOnServer(keyValueList)
 
-            self.trvHandlerLogger.info(u'Extending current \'{}\' schedule for \'{}\': Next \'{}\' Schedule Time of \'{}\' altered to \'{}\''.format(currentScheduleActiveUi, indigo.devices[trvCtlrDevId].name, extendedNextScheduleScheduleActiveUi, self.globals['trvc'][trvCtlrDevId]['extendScheduleOriginalTime'], self.globals['trvc'][trvCtlrDevId]['extendScheduleNewTime']))
+            self.trvHandlerLogger.info(
+                f'Extending current \'{currentScheduleActiveUi}\' schedule for \'{indigo.devices[trvCtlrDevId].name}\': Next \'{extendedNextScheduleScheduleActiveUi}\' Schedule Time of \'{self.globals["trvc"][trvCtlrDevId]["extendScheduleOriginalTime"]}\' altered to \'{self.globals["trvc"][trvCtlrDevId]["extendScheduleNewTime"]}\'')
 
             self.processHeatingSchedule(trvCtlrDevId)
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in \'processExtend\'. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
     def processExtendCancel(self, trvCtlrDevId, invokeProcessHeatingSchedule):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
             if self.globals['trvc'][trvCtlrDevId]['extendActive']:
 
-                self.trvHandlerLogger.debug(u'processExtendCancel [1]:\nRunning:\n{}\n\nDynamic:\n{}\n\n'.format(self.globals['schedules'][trvCtlrDevId]['running'], self.globals['schedules'][trvCtlrDevId]['dynamic']))
+                self.trvHandlerLogger.debug(
+                    f'processExtendCancel [1]:\nRunning:\n{self.globals["schedules"][trvCtlrDevId]["running"]}\n\nDynamic:\n{self.globals["schedules"][trvCtlrDevId]["dynamic"]}\n\n')
                 
                 self.globals['schedules'][trvCtlrDevId]['dynamic'] = collections.OrderedDict(sorted(self.globals['schedules'][trvCtlrDevId]['running'].items())).copy()  # Reset Schedule to previous running state
 
-                self.trvHandlerLogger.debug(u'processExtendCancel [2]:\nRunning:\n{}\n\nDynamic:\n{}\n\n'.format(self.globals['schedules'][trvCtlrDevId]['running'], self.globals['schedules'][trvCtlrDevId]['dynamic']))
+                self.trvHandlerLogger.debug(
+                    f'processExtendCancel [2]:\nRunning:\n{self.globals["schedules"][trvCtlrDevId]["running"]}\n\nDynamic:\n{self.globals["schedules"][trvCtlrDevId]["dynamic"]}\n\n')
 
                 self.globals['trvc'][trvCtlrDevId]['extendActive'] = False
                 self.globals['trvc'][trvCtlrDevId]['extendActivatedTime'] = ''
@@ -709,70 +1106,36 @@ class ThreadTrvHandler(threading.Thread):
                     ]
                 indigo.devices[trvCtlrDevId].updateStatesOnServer(keyValueList)
 
-                self.trvHandlerLogger.info(u'Extend schedule cancelled for \'{}\''.format(indigo.devices[trvCtlrDevId].name))
+                self.trvHandlerLogger.info(f'Extend schedule cancelled for \'{indigo.devices[trvCtlrDevId].name}\'')
 
                 if invokeProcessHeatingSchedule:
                     self.processHeatingSchedule(trvCtlrDevId)
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in \'processExtendCancel\'. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-    def resetScheduleToDeviceDefaults(self, trvCtlrDevId):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            trvcDev = indigo.devices[trvCtlrDevId]
-            if trvcDev.enabled:
-                self.trvHandlerLogger.info(u'Resetting schedules to default values for TRV Controller \'{}\''.format(trvcDev.name))
-                indigo.device.enable(trvcDev.id, value=False) #disable
-                time.sleep(5)
-                indigo.device.enable(trvcDev.id, value=True) #enable
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [resetScheduleToDeviceDefaults]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-    def restateSchedules(self):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            for trvcDev in indigo.devices.iter('self'):
-                if trvcDev.enabled:
-                    self.trvHandlerLogger.info(u'Forcing restatement of schedules to default values for TRV Controller \'{}\''.format(trvcDev.name))
-                    indigo.device.enable(trvcDev.id, value=False) #disable
-                    time.sleep(5)
-                    indigo.device.enable(trvcDev.id, value=True) #enable
-                    time.sleep(2)
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [restateSchedules]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
     def processHeatingSchedule(self, trvCtlrDevId):
-
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
             schedulingEnabled = self.globals['trvc'][trvCtlrDevId]['schedule1Enabled'] or self.globals['trvc'][trvCtlrDevId]['schedule2Enabled'] or self.globals['trvc'][trvCtlrDevId]['schedule3Enabled'] or self.globals['trvc'][trvCtlrDevId]['schedule4Enabled']
 
-            scheduleList =  collections.OrderedDict(sorted(self.globals['schedules'][trvCtlrDevId]['dynamic'].items())) 
+            scheduleList = collections.OrderedDict(sorted(self.globals['schedules'][trvCtlrDevId]['dynamic'].items()))
 
             if trvCtlrDevId in self.globals['timers']['heatingSchedules']:
                 self.globals['timers']['heatingSchedules'][trvCtlrDevId].cancel()
 
             trvcDev = indigo.devices[trvCtlrDevId]
 
-            initialiseHeatingSheduleLog = u'\n\n{}'.format('@'*80)
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@  Device: {}\n@@  Method: processHeatingSchedule'.format(indigo.devices[trvCtlrDevId].name)
+            initialiseHeatingScheduleLog = f'\n\n{"@" * 80}'
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@  Device: {indigo.devices[trvCtlrDevId].name}\n@@  Method: processHeatingSchedule'
             for key, value in scheduleList.items():
-                scheduleTime = int(key)  # HHMMSS
-                scheduleTimeUi = u'{}'.format(value[0])  # 'HH:MM'
+                # scheduleTime = int(key)  # HHMMSS
+                scheduleTimeUi = f'{value[0]}'  # 'HH:MM'
                 scheduleSetpoint = float(value[1])
                 scheduleId = value[2]
 
-                initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@  Time = {}, Setpoint = {}, Id = {}'.format(scheduleTimeUi, scheduleSetpoint, scheduleId)
+                initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@  Time = {scheduleTimeUi}, Setpoint = {scheduleSetpoint}, Id = {scheduleId}'
 
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@  ScheduleList Length = {}, ScheduleList Type = {}'.format(len(scheduleList), type(scheduleList))
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@  ScheduleList Length = {len(scheduleList)}, ScheduleList Type = {type(scheduleList)}'
 
             # ctPrecision = int(datetime.datetime.now().strftime('%H%M%S'))
             # ct = ctPrecision / 100  # HHMM i.e remove seconds
@@ -792,8 +1155,7 @@ class ThreadTrvHandler(threading.Thread):
                         if nextSchedule == 0:
                             nextSchedule = key
 
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@\n@@  CT={}, Prev={}, Next={}'.format(ct, previousSchedule, nextSchedule)
-
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@\n@@  CT={ct}, Prev={previousSchedule}, Next={nextSchedule}'
 
             schedule1Active = False
             schedule2Active = False
@@ -804,7 +1166,7 @@ class ThreadTrvHandler(threading.Thread):
                 if previousSchedule == 0:  # i.e. start of day
                     schedule = scheduleList[previousSchedule]
 
-                    initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@  Current Time = {}, No schedule active'.format(ct)
+                    initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@  Current Time = {ct}, No schedule active'
 
                     # self.globals['trvc'][trvCtlrDevId]['zwavePendingSetpoint'] = True
 
@@ -820,13 +1182,13 @@ class ThreadTrvHandler(threading.Thread):
                             {'key': 'setpointHeat', 'value': self.globals['trvc'][trvCtlrDevId]['setpointHeat']}
                         ]
                     trvcDev.updateStatesOnServer(keyValueList)
-                    self.trvHandlerLogger.debug(u'processHeatingSchedule: Adjusting TRV Controller \'{}\' Setpoint Heat to {}'.format(trvcDev.name, self.globals['trvc'][trvCtlrDevId]['setpointHeat']))
+                    self.trvHandlerLogger.debug(f'processHeatingSchedule: Adjusting TRV Controller \'{trvcDev.name}\' Setpoint Heat to {self.globals["trvc"][trvCtlrDevId]["setpointHeat"]}')
 
                 else:
                     schedule = scheduleList[previousSchedule]
 
                     if schedule[SCHEDULE_ACTIVE]:
-                        initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@  Current Time = {}, Current Schedule started at {} = {}'.format(ct, previousSchedule, schedule) 
+                        initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@  Current Time = {ct}, Current Schedule started at {previousSchedule} = {schedule}'
                         if schedule[SCHEDULE_ID] == 1:
                             schedule1Active = True
                         elif schedule[SCHEDULE_ID] == 2:
@@ -836,7 +1198,7 @@ class ThreadTrvHandler(threading.Thread):
                         elif schedule[SCHEDULE_ID] == 4:
                             schedule4Active = True
                     else:
-                        initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@  Current Time = {}, Last Schedule finished at {} = {}'.format(ct, previousSchedule, schedule)
+                        initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@  Current Time = {ct}, Last Schedule finished at {previousSchedule} = {schedule}'
 
                     # self.globals['trvc'][trvCtlrDevId]['zwavePendingSetpoint'] = True
 
@@ -852,45 +1214,45 @@ class ThreadTrvHandler(threading.Thread):
                             {'key': 'setpointHeat', 'value': self.globals['trvc'][trvCtlrDevId]['setpointHeat']}
                         ]
                     trvcDev.updateStatesOnServer(keyValueList)
-                    self.trvHandlerLogger.debug(u'processHeatingSchedule: Adjusting TRV Controller \'{}\' Setpoint Heat to {}'.format(trvcDev.name, self.globals['trvc'][trvCtlrDevId]['setpointHeat']))
+                    self.trvHandlerLogger.debug(f'processHeatingSchedule: Adjusting TRV Controller \'{trvcDev.name}\' Setpoint Heat to {self.globals["trvc"][trvCtlrDevId]["setpointHeat"]}')
 
                 schedule = scheduleList[nextSchedule]
-                initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@  Next Schedule starts at {} = {}'.format(nextSchedule, schedule)
+                initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@  Next Schedule starts at {nextSchedule} = {schedule}'
 
-                secondsToNextSchedule, calcSecondsLog = calcSeconds(nextSchedule, ct) 
-                initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@  calcSeconds: {}'.format(calcSecondsLog)
+                secondsToNextSchedule, calcSecondsLog = calcSeconds(nextSchedule, ct)
+                initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@  calcSeconds: {calcSecondsLog}'
 
-                self.trvHandlerLogger.debug(u'processHeatingSchedule: CALCSECONDS [{}] =  \'{}\''.format(type(secondsToNextSchedule), secondsToNextSchedule))
-
+                self.trvHandlerLogger.debug(f'processHeatingSchedule: CALCSECONDS [{type(secondsToNextSchedule)}] =  \'{secondsToNextSchedule}\'')
 
                 self.globals['timers']['heatingSchedules'][trvCtlrDevId] = threading.Timer(float(secondsToNextSchedule), self.heatingScheduleTriggered, [trvCtlrDevId])
                 self.globals['timers']['heatingSchedules'][trvCtlrDevId].setDaemon(True)
                 self.globals['timers']['heatingSchedules'][trvCtlrDevId].start()
 
-                nsetTemp = '0{}'.format(nextSchedule)[-6:]  # e.g 91045 > 091045
-                nsetUi = '{}:{}'.format(nsetTemp[0:2], nsetTemp[2:4]) # e.g. 09:10 
+                nsetTemp = f'0{nextSchedule}'[-6:]  # e.g 91045 > 091045
+                nsetUi = f'{nsetTemp[0:2]}:{nsetTemp[2:4]}'  # e.g. 09:10
 
                 self.globals['trvc'][trvCtlrDevId]['nextScheduleExecutionTime'] = nsetUi
-                trvcDev.updateStateOnServer(key='nextScheduleExecutionTime', value=self.globals['trvc'][trvCtlrDevId]['nextScheduleExecutionTime'])                    
+                trvcDev.updateStateOnServer(key='nextScheduleExecutionTime', value=self.globals['trvc'][trvCtlrDevId]['nextScheduleExecutionTime'])
 
             else:
 
                 if schedulingEnabled:
                     schedule = scheduleList[nextSchedule]
                     self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(schedule[SCHEDULE_SETPOINT])
-                    self.trvHandlerLogger.debug(u'processHeatingSchedule: Adjusting TRV Controller \'{}\' Setpoint Heat to {}'.format(trvcDev.name, self.globals['trvc'][trvCtlrDevId]['setpointHeat']))
+                    self.trvHandlerLogger.debug(f'processHeatingSchedule: Adjusting TRV Controller \'{trvcDev.name}\' Setpoint Heat to {self.globals["trvc"][trvCtlrDevId]["setpointHeat"]}')
                 else:
                     if self.globals['trvc'][trvCtlrDevId]['boostSetpointInvokeRestore']:
                         self.globals['trvc'][trvCtlrDevId]['boostSetpointInvokeRestore'] = False
                         self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = self.globals['trvc'][trvCtlrDevId]['boostSetpointToRestore']
                         self.globals['trvc'][trvCtlrDevId]['boostSetpointToRestore'] = 0.0
-                        self.trvHandlerLogger.debug(u'processHeatingSchedule: Restoring TRV Controller \'{}\' Setpoint to pre-boost value {}'.format(trvcDev.name, self.globals['trvc'][trvCtlrDevId]['setpointHeat']))
+                        self.trvHandlerLogger.debug(
+                            f'processHeatingSchedule: Restoring TRV Controller \'{trvcDev.name}\' Setpoint to pre-boost value {self.globals["trvc"][trvCtlrDevId]["setpointHeat"]}')
                     else:
-                        self.trvHandlerLogger.debug(u'processHeatingSchedule: Leaving TRV Controller \'{}\' Setpoint at {}'.format(trvcDev.name, self.globals['trvc'][trvCtlrDevId]['setpointHeat']))
+                        self.trvHandlerLogger.debug(f'processHeatingSchedule: Leaving TRV Controller \'{trvcDev.name}\' Setpoint at {self.globals["trvc"][trvCtlrDevId]["setpointHeat"]}')
 
                 keyValueList = []
                 if schedulingEnabled:
-                    schedule = scheduleList[nextSchedule] 
+                    schedule = scheduleList[nextSchedule]
                     self.globals['trvc'][trvCtlrDevId]['controllerMode'] = CONTROLLER_MODE_AUTO
                     self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(schedule[SCHEDULE_SETPOINT])
                     self.globals['trvc'][trvCtlrDevId]['nextScheduleExecutionTime'] = 'All enabled schedules completed'
@@ -907,8 +1269,7 @@ class ThreadTrvHandler(threading.Thread):
                 keyValueList.append({'key': 'nextScheduleExecutionTime', 'value': self.globals['trvc'][trvCtlrDevId]['nextScheduleExecutionTime']})
                 trvcDev.updateStatesOnServer(keyValueList)
 
-                initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n@@  Current Time = {}, No schedule active or pending'.format(ct)
-
+                initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n@@  Current Time = {ct}, No schedule active or pending'
 
             if indigo.devices[self.globals['trvc'][trvCtlrDevId]['trvDevId']].model == 'Thermostat (Spirit)':
                 if schedulingEnabled:
@@ -921,216 +1282,178 @@ class ThreadTrvHandler(threading.Thread):
 
                 if pollingSeconds != 0.0:
                     if 'pollingSeconds' not in self.globals['trvc'][trvCtlrDevId] or self.globals['trvc'][trvCtlrDevId]['pollingSeconds'] == 0.0 or self.globals['trvc'][trvCtlrDevId]['pollingSeconds'] != pollingSeconds:
-                        self.pollSpiritTriggered(trvCtlrDevId, pollingSeconds)  # Initiate polling sequence and force immediate status update
+                        # Initiate polling sequence and force immediate status update
+                        self.globals['trvc'][trvCtlrDevId]['pollingSeconds'] = float(pollingSeconds)
+                        self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, 0, CMD_TRIGGER_POLL, trvCtlrDevId, []])
 
-            initialiseHeatingSheduleLog = initialiseHeatingSheduleLog + u'\n{}\n\n'.format('@'*80)
-            self.trvHandlerLogger.debug(initialiseHeatingSheduleLog)
+            initialiseHeatingScheduleLog = initialiseHeatingScheduleLog + f'\n{"@" * 80}\n\n'
+            self.trvHandlerLogger.debug(initialiseHeatingScheduleLog)
 
             self.controlTrv(trvCtlrDevId)
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in \'processHeatingSchedule\'. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-    def pollSpiritTriggered(self, trvCtlrDevId, pollingSeconds):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            if trvCtlrDevId in self.globals['timers']['SpiritPolling']:                            
-                self.globals['timers']['SpiritPolling'][trvCtlrDevId].cancel()
-
-            self.globals['trvc'][trvCtlrDevId]['pollingSeconds'] = float(pollingSeconds)
-
-            trvDevId = self.globals['trvc'][trvCtlrDevId]['trvDevId']
-            valveDevId = self.globals['trvc'][trvCtlrDevId]['valveDevId']
-
-            indigo.device.statusRequest(trvDevId)  # Request Spirit Thermostat status
-
-            if valveDevId != 0:
-                indigo.device.statusRequest(valveDevId)  # Request Spirit Valve status
-
-            self.globals['timers']['SpiritPolling'][trvCtlrDevId] = threading.Timer(pollingSeconds, self.pollSpiritTriggered, [trvCtlrDevId, pollingSeconds])  # Initiate next poll
-            self.globals['timers']['SpiritPolling'][trvCtlrDevId].setDaemon(True)
-            self.globals['timers']['SpiritPolling'][trvCtlrDevId].start()
-                
-            self.trvHandlerLogger.debug(u'pollSpiritTriggered: Polling \'{}\' Spirit Thermostat every {} seconds.'.format(indigo.devices[trvDevId].name, int(pollingSeconds)))
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in \'pollSpiritTriggered\'. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
     def heatingScheduleTriggered(self, trvCtlrDevId):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
+            time.sleep(2)  # wait 2 seconds
 
-            # self.trvHandlerLogger.info(u'Schedule Change Triggered for \'{}\' - Will activate in one minute'.format(indigo.devices[trvCtlrDevId].name))
-        
-            # self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, 0, CMD_DELAY_COMMAND, trvCtlrDevId, [CMD_PROCESS_HEATING_SCHEDULE, 60, None]])            
-
-            time.sleep(2)  # wait 2 seconds 
-            self.trvHandlerLogger.info(u'Schedule Change Triggered for \'{}\''.format(indigo.devices[trvCtlrDevId].name))
+            self.trvHandlerLogger.info(f'Schedule Change Triggered for \'{indigo.devices[trvCtlrDevId].name}\'')
 
             self.processExtendCancel(trvCtlrDevId, False)
 
             self.processHeatingSchedule(trvCtlrDevId)
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in \'heatingScheduleTriggered\'. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
-    def delayCommand(self, trvDelayedCommand, trvCtlrDevId, trvDelayedSeconds, trvDelayedCommandPackage):
+    def resetScheduleToDeviceDefaults(self, trvCtlrDevId):
+        try:
+            trvcDev = indigo.devices[trvCtlrDevId]
+            if trvcDev.enabled:
+                self.trvHandlerLogger.info(f'Resetting schedules to default values for TRV Controller \'{trvcDev.name}\'')
+                indigo.device.enable(trvcDev.id, value=False)  # disable
+                time.sleep(5)
+                indigo.device.enable(trvcDev.id, value=True)  # enable
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def restateSchedules(self):
+        try:
+            for trvcDev in indigo.devices.iter('self'):
+                if trvcDev.enabled:
+                    self.trvHandlerLogger.info(f'Forcing restatement of schedules to default values for TRV Controller \'{trvcDev.name}\'')
+                    indigo.device.enable(trvcDev.id, value=False)  # disable
+                    time.sleep(5)
+                    indigo.device.enable(trvcDev.id, value=True)  # enable
+                    time.sleep(2)
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    # noinspection PyUnusedLocal
+    def updateAllCsvFilesViaPostgreSQL(self, trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
+            # if not self.globals['config']['csvPostgresqlEnabled'] or not self.psycopg2_imported or not self.globals['trvc'][trvCtlrDevId]['updateAllCsvFilesViaPostgreSQL']:
+            if not self.globals['config']['csvPostgresqlEnabled'] or not self.globals['trvc'][trvCtlrDevId]['updateAllCsvFilesViaPostgreSQL']:
+                return
 
-            self.globals['timers']['command'][trvCtlrDevId] = threading.Timer(float(trvDelayedSeconds), self.delayCommandTimerTriggered, [trvDelayedCommand, trvCtlrDevId, trvDelayedCommandPackage])  # 3,300 seconds = 55 minutes :)
-            self.globals['timers']['command'][trvCtlrDevId].setDaemon(True)
-            self.globals['timers']['command'][trvCtlrDevId].start()
+            self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'setpointHeat')                
+            self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'temperatureTrv')                
+            self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'setpointHeatTrv')                
+            if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:
+                self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'valvePercentageOpen')                
+            if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] != 0:
+                self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'temperatureRemote')                
+                if self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
+                    self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'setpointHeatRemote')                
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in \'heatingScheduleTriggered\'. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
-    def delayCommandTimerTriggered(self, trvDelayedCommand, trvCtlrDevId, trvDelayedCommandPackage):
+    def updateAllCsvFiles(self, trvCtlrDevId):
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
+            if not self.globals['config']['csvStandardEnabled'] or self.globals['trvc'][trvCtlrDevId]['csvCreationMethod'] != 1:  # Standard CSV Output
+                return
 
-            self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, 0, trvDelayedCommand, trvCtlrDevId, trvDelayedCommandPackage])
+            self.updateCsvFile(trvCtlrDevId, 'setpointHeat', float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']))                
+            self.updateCsvFile(trvCtlrDevId, 'temperatureTrv', float(self.globals['trvc'][trvCtlrDevId]['temperatureTrv']))                
+            self.updateCsvFile(trvCtlrDevId, 'setpointHeatTrv', float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))                
+            if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:
+                self.updateCsvFile(trvCtlrDevId, 'valvePercentageOpen', int(self.globals['trvc'][trvCtlrDevId]['valvePercentageOpen']))                
+            if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] != 0:
+                self.updateCsvFile(trvCtlrDevId, 'temperatureRemote', float(self.globals['trvc'][trvCtlrDevId]['temperatureRemote']))                
+                if self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
+                    self.updateCsvFile(trvCtlrDevId, 'setpointHeatRemote', float(self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote']))                
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in \'delayCommandTimerTriggered\'. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
-    def controlHeatingSource(self, trvCtlrDevId, heatingId, heatingVarId):
+    def updateCsvFile(self, trvCtlrDevId, stateName, updateValue):
 
-        self.methodTracer.threaddebug(u'TrvHandler Method')
-
-        # Determine if heating should be started / ended 
-
-        if heatingId == 0 and heatingVarId == 0:
-            return
-
-        self.globals['lock'].acquire()
         try:
-            if heatingId != 0:
-                if len(self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']) == 0:
-                    callingForHeatUi = 'None'
+            if not self.globals['config']['csvStandardEnabled'] or self.globals['trvc'][trvCtlrDevId]['csvCreationMethod'] != 1:  # Standard CSV Output
+                return
+
+            dateTimeNow = datetime.datetime.now()
+            dateTimeNowStr = dateTimeNow.strftime("%Y-%m-%d %H:%M:%S.%f")
+
+            checkTime = dateTimeNow - datetime.timedelta(hours=self.globals['trvc'][trvCtlrDevId]['csvRetentionPeriodHours'])
+            checkTimeStr = checkTime.strftime("%Y-%m-%d %H:%M:%S.%f")
+
+            csvShortName = self.globals['trvc'][trvCtlrDevId]['csvShortName']
+            csvFileNamePathPrefix = f'{self.globals["config"]["csvPath"]}/{self.globals["config"]["csvPrefix"]}'
+
+            csvFilename = f'{csvFileNamePathPrefix}_{csvShortName}_{stateName}.csv'
+
+            headerName = f'{indigo.devices[trvCtlrDevId].name} - {stateName}'
+
+            dataIn = []
+            try:
+                with open(csvFilename) as csvFileIn:
+                    for line in csvFileIn:
+                        line = line.strip()  # or some other pre-processing
+                        dataIn.append(line)
+                if len(dataIn) > 0:
+                    dataIn.pop(0)  # Remove header
+            except IOError:
+                pass  # IO Error can validly occur if file hasn't yet been created
+
+            csvFileOut = open(csvFilename, 'w')
+
+            self.trvHandlerLogger.debug(f'CSV FILE NAME = \'{csvFilename}\', Time = \'{checkTimeStr}\', State = \'{stateName}\', Value = \'{updateValue}\'')
+
+            headerName = headerName.replace(',', '_')  # Replace any commas with underscore to avoid CSV file problems
+            csvFileOut.write(f'Timestamp,{headerName}\n')  # Write out header
+
+            # droppedRowsFlag = False
+            droppedRow = ''
+            # writtenRowCount = 0
+            firstRowWrittenFlag = False 
+            for row in dataIn:
+                if row[0:26] < checkTimeStr:  # e.g. 2017-04-09 17:26:13.956000
+                    # droppedRowsFlag = True
+                    droppedRow = row
+                    continue
+                elif row[0:26] == checkTimeStr:
+                    pass
                 else:
-                    callingForHeatUi = '\n'
-                    for callingForHeatTrvCtlrDevId in self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']:
-                        callingForHeatUi = callingForHeatUi + '  > {}\n'.format(indigo.devices[callingForHeatTrvCtlrDevId].name)
-
-                self.trvHandlerLogger.debug(u'Control Heating Source: {} Thermostats calling for heat from Device \'{}\': {}'.format(len(self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']), indigo.devices[heatingId].name, callingForHeatUi))
-                if len(self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']) > 0:
-                    # if there are thermostats calling for heat, the heating needs to be 'on'
-                    #indigo.variable.updateValue(self.variableId, value="true")  # Variable indicator to show that heating is being requested
-                    if self.globals['heaterDevices'][heatingId]['onState'] != HEAT_SOURCE_ON:
-                        self.globals['heaterDevices'][heatingId]['onState'] = HEAT_SOURCE_ON 
-                        if self.globals['heaterDevices'][heatingId]['heaterControlType'] == HEAT_SOURCE_CONTROL_HVAC:
-                            if indigo.devices[heatingId].states['hvacOperationMode'] != HVAC_HEAT:
-                                indigo.thermostat.setHvacMode(heatingId, value=HVAC_HEAT) # Turn heating 'on'
-                        elif self.globals['heaterDevices'][heatingId]['heaterControlType'] == HEAT_SOURCE_CONTROL_RELAY:
-                            if not indigo.devices[heatingId].onState:
-                                indigo.device.turnOn(heatingId) # Turn heating 'on'
+                    if not firstRowWrittenFlag:
+                        firstRowWrittenFlag = True
+                        if droppedRow != '':
+                            firstRow = checkTimeStr + droppedRow[26:]
                         else:
-                            pass  # ERROR SITUATION
-                else:
-                    # if no thermostats are calling for heat, then the heating needs to be 'off'
-                    # indigo.variable.updateValue(self.variableId, value="false")  # Variable indicator to show that heating is NOT being requested
-                    if  self.globals['heaterDevices'][heatingId]['onState'] != HEAT_SOURCE_OFF:
-                        self.globals['heaterDevices'][heatingId]['onState'] = HEAT_SOURCE_OFF 
-                        if self.globals['heaterDevices'][heatingId]['heaterControlType'] == HEAT_SOURCE_CONTROL_HVAC:
-                            if indigo.devices[heatingId].states['hvacOperationMode'] != HVAC_OFF:
-                                indigo.thermostat.setHvacMode(heatingId, value=HVAC_OFF) # Turn heating 'off'
-                        elif self.globals['heaterDevices'][heatingId]['heaterControlType'] == HEAT_SOURCE_CONTROL_RELAY:        
-                            if indigo.devices[heatingId].onState:
-                                indigo.device.turnOff(heatingId) # Turn heating 'off'
-                        else:
-                            pass  # ERROR SITUATION
-  
-            if heatingVarId != 0:
-                if len(self.globals['heaterVariables'][heatingVarId]['thermostatsCallingForHeat']) == 0:
-                    callingForHeatUi = 'None'
-                else:
-                    callingForHeatUi = '\n'
-                    for callingForHeatTrvCtlrDevId in self.globals['heaterVariables'][heatingVarId]['thermostatsCallingForHeat']:
-                        callingForHeatUi = callingForHeatUi + '  > {}\n'.format(indigo.devices[callingForHeatTrvCtlrDevId].name)
+                            firstRow = checkTimeStr + row[26:]
+                        csvFileOut.write(f'{firstRow}\n')  # Output modified CSV data line
+                csvFileOut.write(f'{row}\n')  # Output CSV data line as not older than retention limit
+            csvFileOut.write(f'{dateTimeNowStr},{updateValue}\n')
+            csvFileOut.close()
 
-                self.trvHandlerLogger.debug(u'Control Heating Source: Thermostats calling for heat from Variable \'{}\': {}'.format(indigo.variables[heatingVarId].name, callingForHeatUi))
-                if len(self.globals['heaterVariables'][heatingVarId]['thermostatsCallingForHeat']) > 0:
-                    # if there are thermostats calling for heat, the heating needs to be 'on'
-                    indigo.variable.updateValue(heatingVarId, value="true")  # Variable indicator to show that heating is being requested
-                else:
-                    # if no thermostats are calling for heat, then the heating needs to be 'off'
-                    indigo.variable.updateValue(heatingVarId, value="false")  # Variable indicator to show that heating is NOT being requested
-  
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [controlHeatingSource]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-        finally:
-            self.globals['lock'].release()
- 
-    def keepHeatSourceControllerAlive(self, heatingId):
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
+    def updateDeviceStates(self, trvCtlrDevId, command, updateList, sequence):  # noqa - command not used
 
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-            self.trvHandlerLogger.debug(u'\'keepHeatSourceControllerAlive\' invoked for:  {} ...'.format(indigo.devices[heatingId].model))   
-
-            # Only needed for SSR302 / SSR303 - needs updating every 55 minutes
-            if indigo.devices[heatingId].model == "1 Channel Boiler Actuator (SSR303 / ASR-ZW)" or indigo.devices[heatingId].model ==  "2 Channel Boiler Actuator (SSR302)":
-                self.trvHandlerLogger.debug(u'\'keepHeatSourceControllerAlive\' invoked for:  {} - Number of TRVs calling for heat = {}'.format(indigo.devices[heatingId].name, len(self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat'])))   
-                self.globals['lock'].acquire()
-                try:
-                    # if there are thermostats calling for heat, the heating needs to be 'on'
-                    if len(self.globals['heaterDevices'][heatingId]['thermostatsCallingForHeat']) > 0:
-                        indigo.thermostat.setHvacMode(heatingId, value=HVAC_HEAT) # remind Heat Source Controller to stay 'on'
-                        self.trvHandlerLogger.debug(u'\'keepHeatSourceControllerAlive\':  Reminding Heat Source Controller {} to stay \'ON\''.format(indigo.devices[heatingId].name))   
-                    else:
-                        indigo.thermostat.setHvacMode(heatingId, value=HVAC_OFF) # remind Heat Source Controller to stay 'off'
-                        self.trvHandlerLogger.debug(u'\'keepHeatSourceControllerAlive\':  Reminding Heat Source Controller {} to stay \'OFF\''.format(indigo.devices[heatingId].name))   
-                except StandardError, err:
-                    self.trvHandlerLogger.error(u'\'keepHeatSourceControllerAlive\' - StandardError detected. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-                finally:
-                    self.globals['lock'].release()
-
-                self.globals['timers']['heaters'][heatingId] = threading.Timer(3300.0, self.keepHeatSourceControllerAliveTimerTriggered, [heatingId])  # 3,300 seconds = 55 minutes :)
-                self.globals['timers']['heaters'][heatingId].setDaemon(True)
-                self.globals['timers']['heaters'][heatingId].start()
-            else:
-                self.trvHandlerLogger.debug(u'... {} doesn\'t need to be kept alive!'.format(indigo.devices[heatingId].model))
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [keepHeatSourceControllerAlive]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-
-    def keepHeatSourceControllerAliveTimerTriggered(self, heatingId):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, 0, CMD_KEEP_HEAT_SOURCE_CONTROLLER_ALIVE, None, [heatingId, ]])
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [keepHeatSourceControllerAliveTimerTriggered]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))
-
-    def updateDeviceStates(self, trvCtlrDevId, command, updateList, sequence):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
             if indigo.devices[int(self.globals['trvc'][trvCtlrDevId]['trvDevId'])].enabled is True:
 
                 dev = indigo.devices[trvCtlrDevId]
 
-                updateDeviceStatesLog = u'\n\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
-                updateDeviceStatesLog = updateDeviceStatesLog + u'\nXX  Method: \'updateDeviceStates\''
-                updateDeviceStatesLog = updateDeviceStatesLog + u'\nXX  Sequence: {}'.format(sequence)
-                updateDeviceStatesLog = updateDeviceStatesLog + u'\nXX  Device: TRV CONTROLLER - \'{}\''.format(indigo.devices[trvCtlrDevId].name)
+                updateDeviceStatesLog = '\n\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+                updateDeviceStatesLog = updateDeviceStatesLog + '\nXX  Method: \'updateDeviceStates\''
+                updateDeviceStatesLog = updateDeviceStatesLog + f'\nXX  Sequence: {sequence}'
+                updateDeviceStatesLog = updateDeviceStatesLog + f'\nXX  Device: TRV CONTROLLER - \'{indigo.devices[trvCtlrDevId].name}\''
 
-                updateDeviceStatesLog = updateDeviceStatesLog + u'\nXX  List of states to be updated:'
-                for itemToUpdate in updateList.iteritems():
+                updateDeviceStatesLog = updateDeviceStatesLog + '\nXX  List of states to be updated:'
+                for itemToUpdate in updateList.items():
                     updateKey = itemToUpdate[0]
                     updateValue = itemToUpdate[1]
-                    # updateInfo = updateInfo + 'Key = {}, Description = {}, Value = {}\n'.format(updateKey, UPDATE_TRANSLATION[updateKey], updateValue)
-                    updateDeviceStatesLog = updateDeviceStatesLog + '\nXX    > Description = {}, Value = {}'.format(UPDATE_TRANSLATION[updateKey], updateValue)
+                    # updateInfo = updateInfo + f'Key = {updateKey}, Description = {UPDATE_TRANSLATION[updateKey]}, Value = {updateValue}\n'
+                    updateDeviceStatesLog = updateDeviceStatesLog + f'\nXX    > Description = {UPDATE_TRANSLATION[updateKey]}, Value = {updateValue}'
 
                 updateKeyValueList = []
 
@@ -1138,76 +1461,73 @@ class ThreadTrvHandler(threading.Thread):
                 #   - UPDATE_ZWAVE_HVAC_OPERATION_MODE_ID = 4
                 #   - UPDATE_ZWAVE_WAKEUP_INTERVAL = 6
 
-                for itemToUpdate in updateList.iteritems():
+                for itemToUpdate in updateList.items():
                     updateKey = itemToUpdate[0]
                     updateValue = itemToUpdate[1]
 
-                    if updateKey == UPDATE_CONTROLLER_HVAC_OPERATION_MODE: 
+                    if updateKey == UPDATE_CONTROLLER_HVAC_OPERATION_MODE:
                         self.globals['trvc'][trvCtlrDevId]['hvacOperationMode'] = int(updateValue)
                         if dev.states['hvacOperationMode'] != int(updateValue):
-                            updateKeyValueList.append({'key': 'hvacOperationMode', 'value':  int(updateValue)})
+                            updateKeyValueList.append({'key': 'hvacOperationMode', 'value': int(updateValue)})
 
-                    # if updateKey == UPDATE_CONTROLLER_TEMPERATURE: 
+                    # if updateKey == UPDATE_CONTROLLER_TEMPERATURE:
                     #     self.globals['trvc'][trvCtlrDevId]['temperature'] = float(updateValue)
 
-                    if updateKey == UPDATE_CONTROLLER_HEAT_SETPOINT: 
+                    elif updateKey == UPDATE_CONTROLLER_HEAT_SETPOINT:
                         self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(updateValue)
-                        # if dev.heatSetpoint != float(updateValue):
-                            # updateKeyValueList.append({'key': 'setpointHeat', 'value': float(updateValue)})  # Not needed 
+                        if dev.heatSetpoint != float(updateValue):
+                            updateKeyValueList.append({'key': 'setpointHeat', 'value': float(updateValue)})  # Fixed in Version 1.7.4
 
-                    if updateKey == UPDATE_CONTROLLER_MODE:
+                    elif updateKey == UPDATE_CONTROLLER_MODE:
                         self.globals['trvc'][trvCtlrDevId]['controllerMode'] = int(updateValue)
                         if dev.states['controllerMode'] != int(updateValue):
-                            updateKeyValueList.append({'key': 'controllerMode', 'value':  int(updateValue)})
-                            updateKeyValueList.append({'key': 'controllerModeUi', 'value':  CONTROLLER_MODE_TRANSLATION[int(updateValue)]})
+                            updateKeyValueList.append({'key': 'controllerMode', 'value': int(updateValue)})
+                            updateKeyValueList.append({'key': 'controllerModeUi', 'value': CONTROLLER_MODE_TRANSLATION[int(updateValue)]})
 
                     elif updateKey == UPDATE_TRV_BATTERY_LEVEL:
                         self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'] = int(updateValue)
                         if dev.states['batteryLevelTrv'] != int(updateValue):
-                            updateKeyValueList.append({'key': 'batteryLevelTrv', 'value':  int(updateValue)})
-                        if self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'] != 0 and self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'] < self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote']:
+                            updateKeyValueList.append({'key': 'batteryLevelTrv', 'value': int(updateValue)})
+                        if (self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'] != 0 and
+                                self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'] < self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote']):
                             if dev.states['batteryLevel'] != int(updateValue):
-                                updateKeyValueList.append({'key': 'batteryLevel', 'value':  int(updateValue)})
+                                updateKeyValueList.append({'key': 'batteryLevel', 'value': int(updateValue)})
 
-                    elif updateKey == UPDATE_TRV_TEMPERATURE:  
+                    elif updateKey == UPDATE_TRV_TEMPERATURE:
                         self.globals['trvc'][trvCtlrDevId]['temperatureTrv'] = float(updateValue)
                         if dev.states['temperatureTrv'] != float(updateValue):
-                            updateKeyValueList.append({'key': 'temperatureTrv', 'value':  float(updateValue)})
+                            updateKeyValueList.append({'key': 'temperatureTrv', 'value': float(updateValue)})
                             if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] == 0:
-                                updateKeyValueList.append({'key': 'temperatureInput1', 'value': float(updateValue), 'uiValue': '{:.1f} °C'.format(float(updateValue))})
+                                updateKeyValueList.append(dict(key='temperatureInput1', value=float(updateValue), uiValue=f'{float(updateValue):.1f} °C'))
                                 self.globals['trvc'][trvCtlrDevId]['temperature'] = float(updateValue)
-                                updateKeyValueList.append({'key': 'temperature', 'value':  float(updateValue)})
-                                updateKeyValueList.append({'key': 'temperatureUi', 'value': '{:.1f} °C'.format(float(updateValue))})
+                                updateKeyValueList.append({'key': 'temperature', 'value': float(updateValue)})
+                                updateKeyValueList.append({'key': 'temperatureUi', 'value': f'{float(updateValue):.1f} °C'})
                             else:
-                                updateKeyValueList.append({'key': 'temperatureInput2', 'value': float(updateValue), 'uiValue': '{:.1f} °C'.format(float(updateValue))})
-                                updateKeyValueList.append({'key': 'temperatureUi', 'value': 'R: {:.1f} °C, T: {:.1f} °C'.format(self.globals['trvc'][trvCtlrDevId]['temperatureRemote'], float(updateValue))})
+                                updateKeyValueList.append({'key': 'temperatureInput2', 'value': float(updateValue), 'uiValue': f'{float(updateValue):.1f} °C'})
+                                updateKeyValueList.append(
+                                    {'key': 'temperatureUi', 'value': f'R: {self.globals["trvc"][trvCtlrDevId]["temperatureRemote"]:.1f} °C, T: {float(updateValue):.1f} °C'})
 
+                    #                            if spirit
+                    #                                if trv_newtemp > trv_oldtemp
+                    #                                    if not calling_for_heat
+                    #                                        if setpoint < trv_newtemp
+                    #                                           if time since not calling_for_heat > poll_interval
+                    #                                               potential problem - output to log
+                    #
+                    #
+                    #
 
-#                            if spirit
-#                                if trv_newtemp > trv_oldtemp
-#                                    if not calling_for_heat
-#                                        if setpoint < trv_newtemp
-#                                           if time since not calling_for_heat > poll_interval
-#                                               potential problem - output to log
-#
-#
-#
-
-                            # if indigo.devices[trvCtlrDevId].model == 'Thermostat (Spirit)':
-                            #     if (float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']) <= float(self.globals['trvc'][trvCtlrDevId]['temperature'])) and not hvacFullPower:
-                            #         if float(self.globals['trvc'][trvCtlrDevId]['setpointHeat'] < self.globals['trvc'][trvCtlrDevId]['temperatureTrv']:
-                            #             if   
-
-
-
-
+                    # if indigo.devices[trvCtlrDevId].model == 'Thermostat (Spirit)':
+                    #     if (float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']) <= float(self.globals['trvc'][trvCtlrDevId]['temperature'])) and not hvacFullPower:
+                    #         if float(self.globals['trvc'][trvCtlrDevId]['setpointHeat'] < self.globals['trvc'][trvCtlrDevId]['temperatureTrv']:
+                    #             if
 
                     elif updateKey == UPDATE_TRV_HVAC_OPERATION_MODE:
                         if dev.states['hvacOperationModeTrv'] != int(updateValue):
                             if int(updateValue) == RESET_TO_HVAC_HEAT:
                                 updateValue = HVAC_HEAT
                                 indigo.thermostat.setHvacMode(self.globals['trvc'][trvCtlrDevId]['trvDevId'], value=HVAC_HEAT)  # Force reset on TRV device
-                            updateKeyValueList.append({'key': 'hvacOperationModeTrv', 'value':  int(updateValue)})
+                            updateKeyValueList.append({'key': 'hvacOperationModeTrv', 'value': int(updateValue)})
                         self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] = int(updateValue)
 
                         # NEXT BIT OF LOGIC NEEDS SOME ENHANCEMENT
@@ -1215,16 +1535,16 @@ class ThreadTrvHandler(threading.Thread):
                         if self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] == HVAC_OFF:
                             self.globals['trvc'][trvCtlrDevId]['hvacOperationMode'] = HVAC_OFF
                             if dev.states['hvacOperationMode'] != int(HVAC_OFF):
-                                updateKeyValueList.append({'key': 'hvacOperationMode', 'value':  int(HVAC_OFF)})
-                        elif self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] == HVAC_HEAT:  
+                                updateKeyValueList.append({'key': 'hvacOperationMode', 'value': int(HVAC_OFF)})
+                        elif self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] == HVAC_HEAT:
                             self.globals['trvc'][trvCtlrDevId]['hvacOperationMode'] = HVAC_HEAT
                             if dev.states['hvacOperationMode'] != int(HVAC_HEAT):
-                                updateKeyValueList.append({'key': 'hvacOperationMode', 'value':  int(HVAC_HEAT)})
+                                updateKeyValueList.append({'key': 'hvacOperationMode', 'value': int(HVAC_HEAT)})
 
                     elif updateKey == UPDATE_TRV_HEAT_SETPOINT:
                         self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'] = float(updateValue)
                         if dev.states['setpointHeatTrv'] != float(updateValue):
-                            updateKeyValueList.append({'key': 'setpointHeatTrv', 'value':  float(updateValue)})
+                            updateKeyValueList.append({'key': 'setpointHeatTrv', 'value': float(updateValue)})
                         # if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] == 0 and self.globals['trvc'][trvCtlrDevId]['controllerMode'] != CONTROLLER_MODE_UI:
                         #     self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(updateValue)  # <============================================================================== Delta T processing needed ???
                         #     if dev.states['setpointHeat'] != float(updateValue):
@@ -1233,36 +1553,37 @@ class ThreadTrvHandler(threading.Thread):
                     elif updateKey == UPDATE_TRV_HEAT_SETPOINT_FROM_DEVICE:
                         self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'] = float(updateValue)
                         if dev.states['setpointHeatTrv'] != float(updateValue):
-                            updateKeyValueList.append({'key': 'setpointHeatTrv', 'value':  float(updateValue)})
+                            updateKeyValueList.append({'key': 'setpointHeatTrv', 'value': float(updateValue)})
                         self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(updateValue)
                         if dev.states['setpointHeat'] != float(updateValue):
-                            updateKeyValueList.append({'key': 'setpointHeat', 'value':  float(updateValue)})
+                            updateKeyValueList.append({'key': 'setpointHeat', 'value': float(updateValue)})
                         if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] != 0 and self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
                             self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote'] = float(updateValue)
                             if dev.states['setpointHeatRemote'] != float(updateValue):
-                                updateKeyValueList.append({'key': 'setpointHeatRemote', 'value':  float(updateValue)})
-
+                                updateKeyValueList.append({'key': 'setpointHeatRemote', 'value': float(updateValue)})
 
                     elif updateKey == UPDATE_REMOTE_BATTERY_LEVEL:
                         self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'] = int(updateValue)
                         if dev.states['batteryLevelRemote'] != float(updateValue):
-                            updateKeyValueList.append({'key': 'batteryLevelRemote', 'value':  int(updateValue)})
-                        if self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'] != 0 and self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'] < self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv']:
+                            updateKeyValueList.append({'key': 'batteryLevelRemote', 'value': int(updateValue)})
+                        if (self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'] != 0 and
+                                self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'] < self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv']):
                             if dev.states['batteryLevel'] != float(updateValue):
-                                updateKeyValueList.append({'key': 'batteryLevel', 'value':  int(updateValue)})
+                                updateKeyValueList.append({'key': 'batteryLevel', 'value': int(updateValue)})
 
                     elif updateKey == UPDATE_REMOTE_TEMPERATURE:
-                        updatevaluePlusOffset = float(updateValue) + float(self.globals['trvc'][trvCtlrDevId]['remoteTempOffset'])  # Apply Offset
-                        self.globals['trvc'][trvCtlrDevId]['temperatureRemote'] = float(updatevaluePlusOffset)
-                        self.globals['trvc'][trvCtlrDevId]['temperature'] = float(updatevaluePlusOffset)
-                        if dev.states['temperatureRemote'] != float(updatevaluePlusOffset):
-                            updateKeyValueList.append({'key': 'temperatureRemotePreOffset', 'value':  float(updateValue)})
-                            updateKeyValueList.append({'key': 'temperatureRemote', 'value':  float(updatevaluePlusOffset)})
-                            updateKeyValueList.append({'key': 'temperature', 'value':  float(updatevaluePlusOffset)})
-                            updateKeyValueList.append({'key': 'temperatureInput1', 'value': float(updatevaluePlusOffset), 'uiValue': '{:.1f} °C'.format(float(updatevaluePlusOffset))})
-                            updateKeyValueList.append({'key': 'temperatureUi', 'value': 'R: {:.1f} °C, T: {:.1f} °C'.format(float(updatevaluePlusOffset), float(self.globals['trvc'][trvCtlrDevId]['temperatureTrv']))})
+                        updateValuePlusOffset = float(updateValue) + float(self.globals['trvc'][trvCtlrDevId]['remoteTempOffset'])  # Apply Offset
+                        self.globals['trvc'][trvCtlrDevId]['temperatureRemote'] = float(updateValuePlusOffset)
+                        self.globals['trvc'][trvCtlrDevId]['temperature'] = float(updateValuePlusOffset)
+                        if dev.states['temperatureRemote'] != float(updateValuePlusOffset):
+                            updateKeyValueList.append({'key': 'temperatureRemotePreOffset', 'value': float(updateValue)})
+                            updateKeyValueList.append({'key': 'temperatureRemote', 'value': float(updateValuePlusOffset)})
+                            updateKeyValueList.append({'key': 'temperature', 'value': float(updateValuePlusOffset)})
+                            updateKeyValueList.append({'key': 'temperatureInput1', 'value': float(updateValuePlusOffset), 'uiValue': f'{float(updateValuePlusOffset):.1f} °C'})
+                            updateKeyValueList.append(
+                                {'key': 'temperatureUi', 'value': f'R: {float(updateValuePlusOffset):.1f} °C, T: {float(self.globals["trvc"][trvCtlrDevId]["temperatureTrv"]):.1f} °C'})
 
-                            # if spirit:
+                            # if a Spirit:
 
                     elif updateKey == UPDATE_REMOTE_HEAT_SETPOINT_FROM_DEVICE:
                         setpoint = float(updateValue)
@@ -1273,29 +1594,28 @@ class ThreadTrvHandler(threading.Thread):
                         self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote'] = float(setpoint)
                         self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(setpoint)
                         if dev.states['setpointHeatRemote'] != float(setpoint):
-                            updateKeyValueList.append({'key': 'setpointHeatRemote', 'value':  float(setpoint)})
+                            updateKeyValueList.append({'key': 'setpointHeatRemote', 'value': float(setpoint)})
                         if dev.states['setpointHeat'] != float(setpoint):
-                            updateKeyValueList.append({'key': 'setpointHeat', 'value':  float(setpoint)})
+                            updateKeyValueList.append({'key': 'setpointHeat', 'value': float(setpoint)})
 
                     elif updateKey == UPDATE_ZWAVE_EVENT_RECEIVED_TRV:
-                        updateKeyValueList.append({'key': 'zwaveEventReceivedDateTimeTrv', 'value':  updateValue})
+                        updateKeyValueList.append({'key': 'zwaveEventReceivedDateTimeTrv', 'value': updateValue})
 
                     elif updateKey == UPDATE_ZWAVE_EVENT_RECEIVED_REMOTE:
-                        updateKeyValueList.append({'key': 'zwaveEventReceivedDateTimeRemote', 'value':  updateValue})
+                        updateKeyValueList.append({'key': 'zwaveEventReceivedDateTimeRemote', 'value': updateValue})
 
                     elif updateKey == UPDATE_ZWAVE_EVENT_SENT_TRV:
-                        updateKeyValueList.append({'key': 'zwaveEventSentDateTimeTrv', 'value':  updateValue})
+                        updateKeyValueList.append({'key': 'zwaveEventSentDateTimeTrv', 'value': updateValue})
 
                     elif updateKey == UPDATE_ZWAVE_EVENT_SENT_REMOTE:
-                        updateKeyValueList.append({'key': 'zwaveEventSentDateTimeRemote', 'value':  updateValue})
+                        updateKeyValueList.append({'key': 'zwaveEventSentDateTimeRemote', 'value': updateValue})
 
                     elif updateKey == UPDATE_EVENT_RECEIVED_REMOTE:
-                        updateKeyValueList.append({'key': 'eventReceivedDateTimeRemote', 'value':  updateValue})
+                        updateKeyValueList.append({'key': 'eventReceivedDateTimeRemote', 'value': updateValue})
 
                     elif updateKey == UPDATE_CONTROLLER_VALVE_PERCENTAGE:
                         self.globals['trvc'][trvCtlrDevId]['valvePercentageOpen'] = float(updateValue)
-                        updateKeyValueList.append({'key': 'valvePercentageOpen', 'value':  updateValue})
-
+                        updateKeyValueList.append({'key': 'valvePercentageOpen', 'value': updateValue})
 
                 # ##### LOGIC FOR POPP THERMOSTAT AMD SIMILAR #####
 
@@ -1315,19 +1635,17 @@ class ThreadTrvHandler(threading.Thread):
                 #         if dev.states['hvacOperationMode'] != int(HVAC_HEAT):
                 #             updateKeyValueList.append({'key': 'hvacOperationMode', 'value':  int(HVAC_HEAT)})
 
-
                 if len(updateKeyValueList) > 0:
-                    updateDeviceStatesLog = updateDeviceStatesLog + u'\nXX  States to be updated in the TRV Controller device:'
+                    updateDeviceStatesLog = updateDeviceStatesLog + '\nXX  States to be updated in the TRV Controller device:'
                     for itemToUpdate in updateKeyValueList:
-                        updateDeviceStatesLog = updateDeviceStatesLog + '\nXX    > {}'.format(itemToUpdate)
+                        updateDeviceStatesLog = updateDeviceStatesLog + f'\nXX    > {itemToUpdate}'
                     dev.updateStatesOnServer(updateKeyValueList)
                 else:
-                    updateDeviceStatesLog = updateDeviceStatesLog + u'\nXX  No States to be updated in the TRV Controller device:'
+                    updateDeviceStatesLog = updateDeviceStatesLog + '\nXX  No States to be updated in the TRV Controller device:'
 
+                updateDeviceStatesLog = updateDeviceStatesLog + '\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n\n'
 
-                updateDeviceStatesLog = updateDeviceStatesLog + u'\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n\n'
-    
-                self.trvHandlerLogger.debug(updateDeviceStatesLog)
+                self.trvHandlerLogger.debug(updateDeviceStatesLog.encode('utf-8'))
 
                 self.controlTrv(trvCtlrDevId)
 
@@ -1335,60 +1653,35 @@ class ThreadTrvHandler(threading.Thread):
 
                 # self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, 0 ,CMD_CONTROL_HEATING_SOURCE, trvCtlrDevId, [self.globals['trvc'][trvCtlrDevId]['heatingId'], ]])
 
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [updateDeviceStates]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-        except:
-            self.trvHandlerLogger.error(u'Unexpected Exception detected in TRV Handler Thread [updateDeviceStates]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, sys.exc_info()[0]))
-
-
-    def updateAllCsvFilesViaPostgreSQL(self, trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            if not self.globals['config']['csvPostgresqlEnabled'] or not self.globals['trvc'][trvCtlrDevId]['updateAllCsvFilesViaPostgreSQL']:
-                return 
-
-            self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'setpointHeat')                
-            self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'temperatureTrv')                
-            self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'setpointHeatTrv')                
-            if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:
-                self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'valvePercentageOpen')                
-            if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] != 0:
-                self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'temperatureRemote')                
-                if self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
-                    self._updateCsvFileViaPostgreSQL(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, 'setpointHeatRemote')                
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [updateAllCsvFilesViaPostgreSQL]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
+        # except:
+            # self.trvHandlerLogger.error(f'Unexpected Exception detected in TRV Handler Thread [updateDeviceStates]. Line \'{sys.exc_traceback.tb_lineno}\' has error=\'{sys.exc_info()[0]}\'')
 
     def _updateCsvFileViaPostgreSQL(self, trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, stateName):
-
         try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-
             # Dynamically create CSV files from SQL Logger
 
             postgreSQLSupported = False
+            database = None
+            user = 'UNKNOWN'  # Suppress PyCharm warning
             try:
                 user = self.globals['config']['postgresqlUser']
                 password = self.globals['config']['postgresqlPassword']
-                # self.trvHandlerLogger.error(u'PostgreSQL: User = \'{}\', Password = \'{}\''.format(user, password))   
-                conn = None
-                connString = "dbname=indigo_history user={} password={}".format(user, password)
-                conn = psycopg2.connect(connString)
-                if conn is not None:
-                    postgreSQLSupported = True
 
-            except StandardError, err:
-                errString = '{}'.format(err)
+                database_open_string = f"pq://{user}:{password}@127.0.0.1:5432/indigo_history"
+
+                database = postgresql.open(database_open_string)
+
+                postgreSQLSupported = True
+
+            except Exception as error_detail:  # TODO: Make sure this works using Python 3
+                errString = f'{error_detail}'
                 if errString.find('role') != -1 and errString.find('does not exist') != -1:
-                    self.trvHandlerLogger.error(u'PostgreSQL user \'{}\' (specified in plugin config) is invalid'.format(user))
-                else: 
-                    self.trvHandlerLogger.error(u'PostgreSQL not supported or connection attempt invalid. Reason: {}'.format(err))
+                    self.trvHandlerLogger.error(f'PostgreSQL user \'{user}\' (specified in plugin config) is invalid')
+                else:
+                    self.trvHandlerLogger.error(f'PostgreSQL not supported or connection attempt invalid. Reason: {error_detail}')
 
             if not postgreSQLSupported:
                 return
@@ -1401,31 +1694,21 @@ class ThreadTrvHandler(threading.Thread):
             checkTime = dateTimeNow - datetime.timedelta(hours=csvRetentionPeriodHours)
             checkTimeStr = checkTime.strftime("%Y-%m-%d %H:%M:%S.000000")
 
-            cur = conn.cursor()
-            selectString = "SELECT ts, {} FROM device_history_{} WHERE ( ts >= '{}' AND  {} IS NOT NULL) ORDER BY ts".format(stateName, trvCtlrDevId, checkTimeStr, stateName)  # YYYY-MM-DD HH:MM:SS
-            cur.execute(selectString)
-            rowCount = cur.rowcount
-            rows = cur.fetchall()
-            cur.close()
+            selectString = f"SELECT ts, {stateName} FROM device_history_{trvCtlrDevId} WHERE ( ts >= '{checkTimeStr}' AND  {stateName} IS NOT NULL) ORDER BY ts"  # NOQA - YYYY-MM-DD HH:MM:SS
+            ps = database.prepare(selectString)
+            rows = ps()
 
-            # rowsLog = ''
-            # for row in rows:
-            #     timestamp = row[0].strftime("%Y-%m-%d %H:%M:%S.%f")
-            #     temperature = row[1]
-            #     rowsLog = rowsLog + '\n{},{}'.format(timestamp, temperature)
+            # At this point the entries have been retrieved for the selected period. They now need to be topped and tailed to be able to create nice graphs
+            # The following select finds the entry just prior to the start of the period to use as the first value
 
+            selectString2 = (f"SELECT ts, {stateName} FROM device_history_{trvCtlrDevId} WHERE ( ts < '{checkTimeStr}' AND {stateName} IS NOT NULL) ORDER BY ts DESC LIMIT 1")    # noqa [suppress no data sources help message] - YYYY-MM-DD HH:MM:SS
+            ps2 = database.prepare(selectString2)
+            droppedRows = ps2()
+            if len(droppedRows) == 0:  # No entries yet available for whole period, so exit  TODO: Double Check this??? 16-April-2022
+                return
+            droppedRow = droppedRows[0]
 
-            # self.trvHandlerLogger.info(u'ROWS [{}] = \n{}\n'.format(rowCount, rowsLog))   
-
-            cur = conn.cursor()
-            selectString = "SELECT ts, {} FROM device_history_{} WHERE ( ts < '{}' AND {} IS NOT NULL) ORDER BY ts DESC LIMIT 1".format(stateName, trvCtlrDevId, checkTimeStr, stateName)  # YYYY-MM-DD HH:MM:SS
-
-            cur.execute(selectString)
-            rowCount = cur.rowcount
-            droppedRow = cur.fetchone()
-            cur.close()
-
-            # self.trvHandlerLogger.info(u'LAST DROPPED ROW [{}] = \n{}\n'.format(rowCount, droppedRow))
+            # self.trvHandlerLogger.info(f'LAST DROPPED ROW [{rowCount}] = \n{droppedRow}\n')
 
             csvShortName = self.globals['trvc'][trvCtlrDevId]['csvShortName']
 
@@ -1434,369 +1717,36 @@ class ThreadTrvHandler(threading.Thread):
             else:
                 csvFilePrefix = self.globals['config']['csvPrefix']
 
-            csvFileNamePathPrefix = '{}/{}'.format(self.globals['config']['csvPath'], csvFilePrefix)
+            csvFileNamePathPrefix = f'{self.globals["config"]["csvPath"]}/{csvFilePrefix}'
 
-            csvFilename = '{}_{}_{}.csv'.format(csvFileNamePathPrefix, csvShortName, stateName)
+            csvFilename = f'{csvFileNamePathPrefix}_{csvShortName}_{stateName}.csv'
 
-            headerName = '{} - {}'.format(indigo.devices[trvCtlrDevId].name, stateName)
+            headerName = f'{indigo.devices[trvCtlrDevId].name} - {stateName}'
 
             csvFileOut = open(csvFilename, 'w')
 
-            self.trvHandlerLogger.debug(u'CSV FILE NAME = \'{}\', Time = \'{}\', State = \'{}\''.format(csvFilename, checkTimeStr, stateName))
+            self.trvHandlerLogger.debug(f'CSV FILE NAME = \'{csvFilename}\', Time = \'{checkTimeStr}\', State = \'{stateName}\'')
 
-            headerName = headerName.replace(',','_')  # Replace any commas with underscore to avoid CSV file problems
-            csvFileOut.write('Timestamp,{}\n'.format(headerName))  # Write out header
+            headerName = headerName.replace(',', '_')  # Replace any commas with underscore to avoid CSV file problems
+            csvFileOut.write(f'Timestamp,{headerName}\n')  # Write out header
 
-            csvFileOut.write('{},{}\n'.format(checkTimeStr, droppedRow[1]))
+            csvFileOut.write(f'{checkTimeStr},{droppedRow[1]}\n')
 
             for row in rows:
                 timestamp = row[0].strftime("%Y-%m-%d %H:%M:%S.%f")
                 dataValue = row[1]
-                csvFileOut.write('{},{}\n'.format(timestamp, dataValue))
+                csvFileOut.write(f'{timestamp},{dataValue}\n')
 
+            # The following processing finds the last entry and repeats it for the current time to provide the latest entry
             timestamp = dateTimeNow.strftime("%Y-%m-%d %H:%M:%S.999999")
             if len(rows) > 0:
                 lastRow = rows[(len(rows) - 1)]
                 dataValue = lastRow[1]
-                csvFileOut.write('{},{}\n'.format(timestamp, dataValue))
+                csvFileOut.write(f'{timestamp},{dataValue}\n')
             else:
-                csvFileOut.write('{},{}\n'.format(timestamp, droppedRow[1]))
+                csvFileOut.write(f'{timestamp},{droppedRow[1]}\n')
 
             csvFileOut.close()
 
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [_updateCsvFileViaPostgreSQL]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-        finally:
-            if conn is not None:
-                conn.close()
-
-
-    def updateAllCsvFiles(self, trvCtlrDevId):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            if not self.globals['config']['csvStandardEnabled'] or self.globals['trvc'][trvCtlrDevId]['csvCreationMethod'] != 1:  # Standard CSV Output
-                return
-
-            self.updateCsvFile(trvCtlrDevId, 'setpointHeat', float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']))                
-            self.updateCsvFile(trvCtlrDevId, 'temperatureTrv', float(self.globals['trvc'][trvCtlrDevId]['temperatureTrv']))                
-            self.updateCsvFile(trvCtlrDevId, 'setpointHeatTrv', float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))                
-            if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:
-                self.updateCsvFile(trvCtlrDevId, 'valvePercentageOpen', int(self.globals['trvc'][trvCtlrDevId]['valvePercentageOpen']))                
-            if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] != 0:
-                self.updateCsvFile(trvCtlrDevId, 'temperatureRemote', float(self.globals['trvc'][trvCtlrDevId]['temperatureRemote']))                
-                if self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
-                    self.updateCsvFile(trvCtlrDevId, 'setpointHeatRemote', float(self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote']))                
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [updateAllCsvFiles]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-    def updateCsvFile(self, trvCtlrDevId, stateName, updateValue):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            if not self.globals['config']['csvStandardEnabled'] or self.globals['trvc'][trvCtlrDevId]['csvCreationMethod'] != 1:  # Standard CSV Output
-                return
-
-            dateTimeNow = datetime.datetime.now()
-            dateTimeNowStr = dateTimeNow.strftime("%Y-%m-%d %H:%M:%S.%f")
-
-            checkTime = dateTimeNow - datetime.timedelta(hours=self.globals['trvc'][trvCtlrDevId]['csvRetentionPeriodHours'])
-            checkTimeStr = checkTime.strftime("%Y-%m-%d %H:%M:%S.%f")
-
-            csvShortName = self.globals['trvc'][trvCtlrDevId]['csvShortName']
-            csvFileNamePathPrefix = '{}/{}'.format(self.globals['config']['csvPath'], self.globals['config']['csvPrefix'])
-
-            csvFilename = '{}_{}_{}.csv'.format(csvFileNamePathPrefix, csvShortName, stateName)
-
-            headerName = '{} - {}'.format(indigo.devices[trvCtlrDevId].name, stateName)
-
-            dataIn = []
-            try:
-                with open(csvFilename) as csvFileIn:
-                    for line in csvFileIn:
-                        line = line.strip()  # or some other pre-processing
-                        dataIn.append(line)
-                if len(dataIn) > 0:
-                    dataIn.pop(0)  # Remove header
-            except IOError:
-                pass  # IO Error can validly occur if file hasn't yet been created
-
-            csvFileOut = open(csvFilename, 'w')
-
-            self.trvHandlerLogger.debug(u'CSV FILE NAME = \'{}\', Time = \'{}\', State = \'{}\', Value = \'{}\''.format(csvFilename, checkTimeStr, stateName, updateValue))
-
-
-            headerName = headerName.replace(',','_')  # Replace any commas with underscore to avoid CSV file problems
-            csvFileOut.write('Timestamp,{}\n'.format(headerName))  # Write out header
-
-            droppedRowsFlag = False
-            droppedRow = ''
-            writtenRowCount = 0
-            firstRowWrittenFlag = False 
-            for row in dataIn:
-                if row[0:26] < checkTimeStr: # e.g. 2017-04-09 17:26:13.956000
-                    droppedRowsFlag = True
-                    droppedRow = row
-                    continue
-                elif row[0:26] == checkTimeStr:
-                    pass
-                else:
-                    if not firstRowWrittenFlag:
-                        firstRowWrittenFlag = True
-                        if droppedRow != '':
-                            firstRow = checkTimeStr + droppedRow[26:]
-                        else:
-                            firstRow = checkTimeStr + row[26:]
-                        csvFileOut.write('{}\n'.format(firstRow))  # Output modified CSV data line 
-                csvFileOut.write('{}\n'.format(row))  # Output CSV data line as not older than retention limit
-            csvFileOut.write('{},{}\n'.format(dateTimeNowStr, updateValue))
-            csvFileOut.close()
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [updateCsv]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-    def controlTrv(self, trvCtlrDevId):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            # Control the thermostat that is controlled by this TRV Controller (trvCtlrDevId)
-
-            if not self.globals['trvc'][trvCtlrDevId]['deviceStarted']:
-                self.trvHandlerLogger.debug(u'controlTrv: \'{}\' startup not yet completed'.format(indigo.devices[trvCtlrDevId].name)) 
-                return
-
-            trvDevId = self.globals['trvc'][trvCtlrDevId]['trvDevId']
-            trvDev = indigo.devices[trvDevId]
-            remoteDevId = self.globals['trvc'][trvCtlrDevId]['remoteDevId']
-
-            self.trvHandlerLogger.debug(u'controlTrv: \'{}\' is set to Controller Mode \'{}\''.format(indigo.devices[trvCtlrDevId].name, CONTROLLER_MODE_TRANSLATION[self.globals['trvc'][trvCtlrDevId]['controllerMode']])) 
-            self.trvHandlerLogger.debug(u'controlTrv: \'{}\' internal states [1] are: controllerMode = {}, setpointHeat = {}, setPointTrv =  {}'.format(indigo.devices[trvCtlrDevId].name, self.globals['trvc'][trvCtlrDevId]['controllerMode'], self.globals['trvc'][trvCtlrDevId]['setpointHeat'], self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])) 
-
-            if not self.globals['trvc'][trvCtlrDevId]['deviceStarted'] or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_INITIALISATION:  # Return if still in initialisation
-                return
-
-            if self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_HARDWARE or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_UI:
-                self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote'])
-            elif self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_HARDWARE or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_UI:
-                self.globals['trvc'][trvCtlrDevId]['setpointHeat'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
-            else:
-                # self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_Auto or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_UI:
-                # Must be one of: CONTROLLER_MODE_AUTO / CONTROLLER_MODE_UI
-                pass
-
-            self.trvHandlerLogger.debug(u'controlTrv: \'{}\' internal states [2] are: controllerMode = {}, setpointHeat = {}, setPointTrv =  {}'.format(indigo.devices[trvCtlrDevId].name, self.globals['trvc'][trvCtlrDevId]['controllerMode'], self.globals['trvc'][trvCtlrDevId]['setpointHeat'], self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])) 
-
-
-            # Set the Remote Thermostat setpoint if not invoked by remote and it exists and setpoint adjustment is enabled
-
-            if self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_AUTO or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_UI or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_HARDWARE or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_TRV_UI:
-                if remoteDevId != 0 and self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
-                    if float(indigo.devices[remoteDevId].heatSetpoint) != float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']):
-                        self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeat'])
-                        self.globals['trvc'][trvCtlrDevId]['zwavePendingRemoteSetpointFlag'] = True
-                        self.globals['trvc'][trvCtlrDevId]['zwavePendingRemoteSetpointSequence'] += 1
-                        self.globals['trvc'][trvCtlrDevId]['zwavePendingRemoteSetpointValue'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
-                        indigo.thermostat.setHeatSetpoint(remoteDevId, value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']))  # Set Remote Heat Setpoint to Target Temperature
-                        self.trvHandlerLogger.debug(u'controlTrv: Adjusting Remote Setpoint Heat from {} to Target Temperature of {}'.format(float(indigo.devices[remoteDevId].heatSetpoint), float(self.globals['trvc'][trvCtlrDevId]['setpointHeat'])))
-                        indigo.devices[trvCtlrDevId].updateStateOnServer(key='setpointHeatRemote', value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatRemote']))                    
-
-            hvacFullPower = False
-            if trvDev.model == 'Thermostat (Spirit)' and 'zwaveHvacOperationModeID' in trvDev.states and trvDev.states['zwaveHvacOperationModeID'] == HVAC_FULL_POWER:
-                hvacFullPower = True
-
-            self.trvHandlerLogger.debug(u'controlTrv: \'{}\' internal states [3] are: HVAC_FULL_POWER = {}'.format(indigo.devices[trvCtlrDevId].name, hvacFullPower)) 
-
-
-            if (float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']) <= float(self.globals['trvc'][trvCtlrDevId]['temperature'])) and not hvacFullPower:
-
-                self.controlTrvHeatingOff(trvCtlrDevId)  # TRV no longer calling for heat
-                self.controlHeatingSource(trvCtlrDevId, self.globals['trvc'][trvCtlrDevId]['heatingId'], self.globals['trvc'][trvCtlrDevId]['heatingVarId'])
-
-                if self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_AUTO or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_UI or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_HARDWARE or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_UI: 
-
-                    if float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']) != float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMinimum']):
-                        self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMinimum'])
-                    if indigo.devices[trvDevId].heatSetpoint != float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']):
-                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointFlag'] = True
-                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointSequence'] += 1
-                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
-                        indigo.thermostat.setHeatSetpoint(trvDevId, value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))
-                        self.trvHandlerLogger.debug(u'controlTrv: Turning OFF and adjusting TRV Setpoint Heat to \'{}\'. Z-Wave Pending = {}, Setpoint = \'{}\', Sequence = \'{}\'.'.format(float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']), self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointFlag'], self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'], self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointSequence']))
-
-                        indigo.devices[trvCtlrDevId].updateStateOnServer(key='setpointHeatTrv', value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))                    
-
-                        if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0 and self.globals['trvc'][trvCtlrDevId]['valveAssistance']:  # e.g. EUROTronic Spirit Thermostat
-                                self.trvHandlerLogger.debug(u'controlTrv: >>>>>> \'{}\' SUPPORTS VALVE CONTROL - CLOSING VALVE <<<<<<<<<'.format(indigo.devices[trvDevId].name))
-                                zwaveRawCommandSequence = list()
-                                zwaveRawCommandSequence.append((1, 0, [], 'Timer Initialisation'))
-                                zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x1F], 'Thermostat Mode Control - Valve Control'))
-                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x01, 0x00], 'Switch Multilevel - Valve = 0%'))
-                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x01, 0x00], 'Switch Multilevel - Valve = 0%'))
-                                zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
-                                zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
-                                zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x01], 'Thermostat Mode Control - Heat'))
-                                if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff']:
-                                    zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x00], 'Thermostat Mode Control - Off'))
-                                self.controlTrvSpiritValveCommandsQueued(trvCtlrDevId, zwaveRawCommandSequence)
-
-                        if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff']:
-                            indigo.thermostat.setHvacMode(trvDevId, value=HVAC_OFF)
-
-
-
-
-            if float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']) > float(self.globals['trvc'][trvCtlrDevId]['temperature']) or hvacFullPower:
-
-                # TRV should be turned on as its temperature is less than target Temperature
-
-                self.controlTrvHeatingOn(trvCtlrDevId)  # TRV calling for heat
-                self.controlHeatingSource(trvCtlrDevId, self.globals['trvc'][trvCtlrDevId]['heatingId'], self.globals['trvc'][trvCtlrDevId]['heatingVarId'])
-
-                if self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_AUTO or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_UI or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_HARDWARE or self.globals['trvc'][trvCtlrDevId]['controllerMode'] == CONTROLLER_MODE_REMOTE_UI: 
-
-                    deltaMax = 0.0
-                    if remoteDevId != 0:
-                        deltaMax = float(self.globals['trvc'][trvCtlrDevId]['remoteDeltaMax'])
-
-                    targetHeatSetpoint = float(float(self.globals['trvc'][trvCtlrDevId]['setpointHeat']) + float(deltaMax))  # + deltaMax either remoteDeltaMax, if TRV controlled by remote thermostat or zero
-                    if targetHeatSetpoint > float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMaximum']):
-                        targetHeatSetpoint = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatMaximum'])
-
-                    if float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']) != targetHeatSetpoint:
-                        self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'] = targetHeatSetpoint
-
-                    if indigo.devices[trvDevId].heatSetpoint != float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']):
-                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointFlag'] = True
-                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointSequence'] += 1
-                        self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'] = float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv'])
-                        indigo.thermostat.setHeatSetpoint(trvDevId, value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))
-                        self.trvHandlerLogger.debug(u'controlTrv: Turning ON and adjusting TRV Setpoint Heat to \'{}\'. Z-Wave Pending = {}, Setpoint = \'{}\', Sequence = \'{}\'.'.format(float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']), self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointFlag'], self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointValue'], self.globals['trvc'][trvCtlrDevId]['zwavePendingTrvSetpointSequence']))
-
-                        indigo.devices[trvCtlrDevId].updateStateOnServer(key='setpointHeatTrv', value=float(self.globals['trvc'][trvCtlrDevId]['setpointHeatTrv']))                    
-
-                        if self.globals['trvc'][trvCtlrDevId]['enableTrvOnOff'] or self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] == HVAC_OFF:
-                            indigo.thermostat.setHvacMode(trvDevId, value=HVAC_HEAT)
-
-                        if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:  # EUROTronic Spirit Thermostat special logic
-                            if self.globals['trvc'][trvCtlrDevId]['valveAssistance']:
-                                self.trvHandlerLogger.debug(u'controlTrv: >>>>>> \'{}\' SUPPORTS VALVE CONTROL - OPENING VALVE <<<<<<<<<'.format(indigo.devices[trvDevId].name))
-
-                                zwaveRawCommandSequence = list()
-                                zwaveRawCommandSequence.append((1, 0, [], 'Timer Initialisation'))
-                                zwaveRawCommandSequence.append((1, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x1F], 'Thermostat Mode Control - Valve Control'))
-                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x01, 0x63], 'Switch Multilevel - Valve = 100%'))
-                                zwaveRawCommandSequence.append((3, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x01, 0x63], 'Switch Multilevel - Valve = 100%'))
-                                zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
-                                zwaveRawCommandSequence.append((2, self.globals['trvc'][trvCtlrDevId]['valveDevId'], [0x26, 0x02], 'Switch Multilevel - Status Update'))
-                                zwaveRawCommandSequence.append((0, self.globals['trvc'][trvCtlrDevId]['trvDevId'], [0x40, 0x01, 0x01], 'Thermostat Mode Control - Heat'))
-                                self.controlTrvSpiritValveCommandsQueued(trvCtlrDevId, zwaveRawCommandSequence)
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [controlTRV]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-        except:
-            self.trvHandlerLogger.error(u'Unexpected Exception detected in TRV Handler Thread [controlTRV]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, sys.exc_info()[0]))
-
-
-    def controlTrvSpiritValveCommandsQueued(self, trvCtlrDevId, zwaveRawCommandSequence):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            spiritValveId = self.globals['trvc'][trvCtlrDevId]['valveDevId']
-            spiritValveDev = indigo.devices[spiritValveId]
-            self.trvHandlerLogger.debug(u'controlTrvSpiritQueued')
-
-            if trvCtlrDevId in self.globals['timers']['SpiritValveCommands']:
-                self.globals['timers']['SpiritValveCommands'][trvCtlrDevId].cancel()
-                self.trvHandlerLogger.debug(u'controlTrvSpiritValveCommandsQueued timer cancelled for device \'{}\' with now cancelled Command Sequence:\n{}'.format(spiritValveDev.name, zwaveRawCommandSequence))
-
-
-            self.controlTrvSpiritTriggered(trvCtlrDevId, zwaveRawCommandSequence)
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [controlTrvSpiritValveCommandsQueued]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-    def controlTrvSpiritTriggered(self, trvCtlrDevId, zwaveRawCommandSequence):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            spiritValveId = self.globals['trvc'][trvCtlrDevId]['valveDevId']
-            spiritValveDev = indigo.devices[spiritValveId]
-
-            self.trvHandlerLogger.debug(u'controlTrvSpiritTriggered for device \'{}\' with Command Sequence [{}]:\n\n{}\n'.format(spiritValveDev.name, len(zwaveRawCommandSequence), zwaveRawCommandSequence))
-
-            seconds, targetDeviceId, zwaveRawCommandString, zwaveRawCommandDescription  = zwaveRawCommandSequence.pop(0)  # FIFO List
-            if len(zwaveRawCommandString) > 0:       
-                indigo.zwave.sendRaw(device = indigo.devices[targetDeviceId], cmdBytes = zwaveRawCommandString, sendMode = 1)
-                self.trvHandlerLogger.debug(u'>>>>>> ZWave Raw Command for device \'{}\' = {}'.format(indigo.devices[targetDeviceId].name, zwaveRawCommandDescription))
-                if zwaveRawCommandString == [0x40, 0x01, 0x00]:
-                    indigo.thermostat.setHvacMode(targetDeviceId, value=HVAC_OFF)
-                elif zwaveRawCommandString == [0x40, 0x01, 0x01]:
-                    indigo.thermostat.setHvacMode(targetDeviceId, value=HVAC_HEAT)
-            if len(zwaveRawCommandSequence) > 0:
-                delaySeconds = zwaveRawCommandSequence[0][0]
-                self.globals['timers']['SpiritValveCommands'][trvCtlrDevId] = threading.Timer(float(delaySeconds), self.controlTrvSpiritTriggered, [trvCtlrDevId, zwaveRawCommandSequence])
-                self.globals['timers']['SpiritValveCommands'][trvCtlrDevId].setDaemon(True)
-                self.globals['timers']['SpiritValveCommands'][trvCtlrDevId].start()
-
-        except StandardError, err:
-            self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [controlTrvSpiritTriggered]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-
-
-
-    def controlTrvHeatingOff(self, trvCtlrDevId):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            try:
-                self.globals['lock'].acquire()
-                if self.globals['trvc'][trvCtlrDevId]['heatingId'] > 0:
-                    self.globals['heaterDevices'][self.globals['trvc'][trvCtlrDevId]['heatingId']]['thermostatsCallingForHeat'].discard(trvCtlrDevId)  # Remove TRV Controller from the SET thermostatsCallingForHeat
-                if self.globals['trvc'][trvCtlrDevId]['heatingVarId'] > 0:
-                    self.globals['heaterVariables'][self.globals['trvc'][trvCtlrDevId]['heatingVarId']]['thermostatsCallingForHeat'].discard(trvCtlrDevId)  # Remove TRV Controller from the SET thermostatsCallingForHeat
-            except StandardError, err:
-                self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [controlTrvHeatingOff]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-            except:
-                self.trvHandlerLogger.error(u'Unexpected Exception detected in TRV Handler Thread [controlTrvHeatingOff]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, sys.exc_info()[0]))
-            finally:
-                self.globals['lock'].release()
-
-                indigo.devices[trvCtlrDevId].updateStateOnServer(key='hvacHeaterIsOn', value=False)
-                indigo.devices[trvCtlrDevId].updateStateImageOnServer(indigo.kStateImageSel.HvacHeatMode)  # HvacOff - HvacHeatMode - HvacHeating - HvacAutoMode
-
-        except:
-            self.trvHandlerLogger.error(u'Unexpected Exception detected in TRV Handler Thread [controlTrvHeatingOff]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, sys.exc_info()[0]))
-
-    def controlTrvHeatingOn(self, trvCtlrDevId):
-
-        try:
-            self.methodTracer.threaddebug(u'TrvHandler Method')
-
-            try:
-                self.globals['lock'].acquire()
-                if self.globals['trvc'][trvCtlrDevId]['heatingId'] > 0:
-                    self.globals['heaterDevices'][self.globals['trvc'][trvCtlrDevId]['heatingId']]['thermostatsCallingForHeat'].add(trvCtlrDevId)  # Add TRV Controller to the SET thermostatsCallingForHeat
-                if self.globals['trvc'][trvCtlrDevId]['heatingVarId'] > 0:
-                    self.globals['heaterVariables'][self.globals['trvc'][trvCtlrDevId]['heatingVarId']]['thermostatsCallingForHeat'].add(trvCtlrDevId)  # Add TRV Controller to the SET thermostatsCallingForHeat
-                self.globals['trvc'][trvCtlrDevId]['hvacOperationModeTrv'] = HVAC_HEAT
-            except StandardError, err:
-                self.trvHandlerLogger.error(u'StandardError detected in TRV Handler Thread [controlTrvHeatingOn]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, err))   
-            except:
-                self.trvHandlerLogger.error(u'Unexpected Exception detected in TRV Handler Thread [controlTrvHeatingOn]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, sys.exc_info()[0]))
-            finally:
-                self.globals['lock'].release()
-
-                indigo.devices[trvCtlrDevId].updateStateOnServer(key='hvacHeaterIsOn', value=True)
-                indigo.devices[trvCtlrDevId].updateStateImageOnServer(indigo.kStateImageSel.HvacHeatMode)  # HvacOff - HvacHeatMode - HvacHeating - HvacAutoMode
-
-        except:
-            self.trvHandlerLogger.error(u'Unexpected Exception detected in TRV Handler Thread [controlTrvHeatingOff]. Line \'{}\' has error=\'{}\''.format(sys.exc_traceback.tb_lineno, sys.exc_info()[0]))
-
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
