@@ -12,9 +12,9 @@ except ImportError:
 
 import collections
 import datetime
-
 import postgresql
 import queue
+import subprocess
 import sys
 import threading
 import time
@@ -132,7 +132,7 @@ class ThreadTrvHandler(threading.Thread):
                         self.pollSpiritTriggered(trvCommandDevId)
                         continue
 
-                    if trvCommand in (CMD_UPDATE_TRV_CONTROLLER_STATES, CMD_UPDATE_TRV_STATES, CMD_UPDATE_REMOTE_STATES, CMD_UPDATE_VALVE_STATES):
+                    if trvCommand in (CMD_UPDATE_TRV_CONTROLLER_STATES, CMD_UPDATE_TRV_STATES, CMD_UPDATE_REMOTE_STATES, CMD_UPDATE_VALVE_STATES, CMD_UPDATE_RADIATOR_STATES):
                         updateList = trvCommandPackage[0]
                         self.updateDeviceStates(trvCommandDevId, trvCommand, updateList, trvQueueSequence)
                         continue
@@ -219,6 +219,12 @@ class ThreadTrvHandler(threading.Thread):
                         overrideDefaultRetentionHours = trvCommandPackage[0]
                         overrideCsvFilePrefix = trvCommandPackage[1]
                         self.updateAllCsvFilesViaPostgreSQL(trvCommandDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix)
+                        continue
+
+                    if trvCommand == CMD_INVOKE_DATAGRAPH_USING_POSTGRESQL_TO_CSV:
+                        overrideDefaultRetentionHours = trvCommandPackage[0]
+                        overrideCsvFilePrefix = trvCommandPackage[1]
+                        self.updateDatagraphCsvFileViaPostgreSQL(trvCommandDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix)
                         continue
 
                     self.trvHandlerLogger.error(f'TRVHandler: \'{CMD_TRANSLATION[trvCommand]}\' command cannot be processed')
@@ -1354,6 +1360,33 @@ class ThreadTrvHandler(threading.Thread):
         except Exception as exception_error:
             self.exception_handler(exception_error, True)  # Log error and display failing statement
 
+    # noinspection PyUnusedLocal
+    def updateDatagraphCsvFileViaPostgreSQL(self, trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix):
+
+        try:
+            if not self.globals['config']['csvPostgresqlEnabled'] or not self.globals['trvc'][trvCtlrDevId]['updateDatagraphCsvFileViaPostgreSQL']:
+                return
+
+            state_names_list = list()
+            state_names_list.append('setpointHeat')
+            state_names_list.append('setpointHeatTrv')
+            state_names_list.append('temperatureTrv')
+            if self.globals['trvc'][trvCtlrDevId]['radiatorDevId'] != 0:
+                state_names_list.append('temperatureRadiator')
+            if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] != 0:
+                if self.globals['trvc'][trvCtlrDevId]['remoteSetpointHeatControl']:
+                    state_names_list.append('setpointHeatRemote')
+                state_names_list.append('temperatureRemote')
+            if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:
+                state_names_list.append('valvePercentageOpen')
+
+            self._invokeDatagraphUsingPostgresqlToCsv(trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, state_names_list)
+
+            # TODO: ???
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
     def updateAllCsvFiles(self, trvCtlrDevId):
 
         try:
@@ -1598,6 +1631,26 @@ class ThreadTrvHandler(threading.Thread):
                         if dev.states['setpointHeat'] != float(setpoint):
                             updateKeyValueList.append({'key': 'setpointHeat', 'value': float(setpoint)})
 
+                    elif updateKey == UPDATE_RADIATOR_BATTERY_LEVEL:
+                        self.globals['trvc'][trvCtlrDevId]['batteryLevelRadiator'] = int(updateValue)
+                        if dev.states['batteryLevelRadiator'] != float(updateValue):
+                            updateKeyValueList.append({'key': 'batteryLevelRadiator', 'value': int(updateValue)})
+                        if (self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'] != 0 and
+                                self.globals['trvc'][trvCtlrDevId]['batteryLevelRadiator'] < self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv']):
+                            if dev.states['batteryLevel'] != float(updateValue):
+                                updateKeyValueList.append({'key': 'batteryLevel', 'value': int(updateValue)})
+
+                    elif updateKey == UPDATE_RADIATOR_TEMPERATURE:
+                        updateValue = float(updateValue)
+                        self.globals['trvc'][trvCtlrDevId]['temperatureRadiator'] = float(updateValue)
+                        # self.globals['trvc'][trvCtlrDevId]['temperature'] = float(updateValue)
+                        if dev.states['temperatureRadiator'] != float(updateValue):
+                            updateKeyValueList.append({'key': 'temperatureRadiator', 'value': float(updateValue)})
+                            # updateKeyValueList.append({'key': 'temperature', 'value': float(updateValuePlusOffset)})
+                            # updateKeyValueList.append({'key': 'temperatureInput1', 'value': float(updateValuePlusOffset), 'uiValue': f'{float(updateValuePlusOffset):.1f} °C'})
+                            # updateKeyValueList.append(
+                            #    {'key': 'temperatureUi', 'value': f'R: {float(updateValuePlusOffset):.1f} °C, T: {float(self.globals["trvc"][trvCtlrDevId]["temperatureTrv"]):.1f} °C'})
+
                     elif updateKey == UPDATE_ZWAVE_EVENT_RECEIVED_TRV:
                         updateKeyValueList.append({'key': 'zwaveEventReceivedDateTimeTrv', 'value': updateValue})
 
@@ -1659,7 +1712,7 @@ class ThreadTrvHandler(threading.Thread):
         # except:
             # self.trvHandlerLogger.error(f'Unexpected Exception detected in TRV Handler Thread [updateDeviceStates]. Line \'{sys.exc_traceback.tb_lineno}\' has error=\'{sys.exc_info()[0]}\'')
 
-    def _updateCsvFileViaPostgreSQL(self, trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, stateName):
+    def _invokeDatagraphUsingPostgresqlToCsv(self, trvCtlrDevId, overrideDefaultRetentionHours, overrideCsvFilePrefix, state_name_list):
         try:
             # Dynamically create CSV files from SQL Logger
 
@@ -1690,63 +1743,192 @@ class ThreadTrvHandler(threading.Thread):
                 csvRetentionPeriodHours = overrideDefaultRetentionHours
             else:
                 csvRetentionPeriodHours = self.globals['trvc'][trvCtlrDevId]['csvRetentionPeriodHours']
-            dateTimeNow = datetime.datetime.now()
-            checkTime = dateTimeNow - datetime.timedelta(hours=csvRetentionPeriodHours)
-            checkTimeStr = checkTime.strftime("%Y-%m-%d %H:%M:%S.000000")
 
-            selectString = f"SELECT ts, {stateName} FROM device_history_{trvCtlrDevId} WHERE ( ts >= '{checkTimeStr}' AND  {stateName} IS NOT NULL) ORDER BY ts"  # NOQA - YYYY-MM-DD HH:MM:SS
-            ps = database.prepare(selectString)
-            rows = ps()
+            end_date_time_now = datetime.datetime.now()
+            start_time = end_date_time_now - datetime.timedelta(hours=csvRetentionPeriodHours)
+            start_time_postgres = start_time.strftime("%Y-%m-%d %H:%M:%S.000000")
+            start_time_for_csv = start_time_postgres[0:19]  # e.g. YYY-MM-DD HH:MM:SS
+            end_date_time_now_for_csv = end_date_time_now.strftime("%Y-%m-%d %H:%M:%S")  # e.g. YYY-MM-DD HH:MM:SS
 
-            # At this point the entries have been retrieved for the selected period. They now need to be topped and tailed to be able to create nice graphs
-            # The following select finds the entry just prior to the start of the period to use as the first value
+            DT = 0
+            CS = 1
+            TS = 2
+            TT = 3
+            RD = 4
+            RS = 5
+            RT = 6
+            V = 7
 
-            selectString2 = (f"SELECT ts, {stateName} FROM device_history_{trvCtlrDevId} WHERE ( ts < '{checkTimeStr}' AND {stateName} IS NOT NULL) ORDER BY ts DESC LIMIT 1")    # noqa [suppress no data sources help message] - YYYY-MM-DD HH:MM:SS
-            ps2 = database.prepare(selectString2)
-            droppedRows = ps2()
-            if len(droppedRows) == 0:  # No entries yet available for whole period, so exit  TODO: Double Check this??? 16-April-2022
-                return
-            droppedRow = droppedRows[0]
+            state_names_translation = dict()
+            state_names_translation["setpointHeat"] = CS
+            state_names_translation["setpointHeatTrv"] = TS
+            state_names_translation["temperatureTrv"] = TT
+            state_names_translation["temperatureRadiator"] = RD
+            state_names_translation["setpointHeatRemote"] = RS
+            state_names_translation["temperatureRemote"] = RT
+            state_names_translation["valvePercentageOpen"] = V
 
-            # self.trvHandlerLogger.info(f'LAST DROPPED ROW [{rowCount}] = \n{droppedRow}\n')
+            # Determine states passed to this method and create a CSV header record for states passed to this method
+
+            process_state_cs = False
+            process_state_ts = False
+            process_state_tt = False
+            process_state_rd = False
+            process_state_rs = False
+            process_state_rt = False
+            process_state_v = False
+
+            header_states = dict()
+            for state_name in state_name_list:
+                state_name_code = state_names_translation[state_name]
+                header_states[state_name_code] = True
+
+            # 1. Create a CSV header record for states passed to this method
+            # 2. Create a dictionary to record the states events
+            # 3. Create the last (time now) entry based on states passed to this method
+
+            events = dict()
+            events[start_time_for_csv] = dict()  # Store start time entry
+            events[end_date_time_now_for_csv] = dict()  # Store Last (time now) entry
+
+            header_for_csv = "DT"
+            if CS in header_states and header_states[CS]:
+                header_for_csv += ",CS"
+                events[end_date_time_now_for_csv][CS] = 0
+                process_state_cs = True
+            if TS in header_states and header_states[TS]:
+                header_for_csv += ",TS"
+                events[end_date_time_now_for_csv][TS] = 0
+                process_state_ts = True
+            if TT in header_states and header_states[TT]:
+                header_for_csv += ",TT"
+                events[end_date_time_now_for_csv][TT] = 0
+                process_state_tt = True
+            if RD in header_states and header_states[RD]:
+                header_for_csv += ",RD"
+                events[end_date_time_now_for_csv][RD] = 0
+                process_state_rd = True
+            if RS in header_states and header_states[RS]:
+                header_for_csv += ",RS"
+                events[end_date_time_now_for_csv][RS] = 0
+                process_state_rs = True
+            if RT in header_states and header_states[RT]:
+                header_for_csv += ",RT"
+                events[end_date_time_now_for_csv][RT] = 0
+                process_state_rt = True
+            if V in header_states and header_states[V]:
+                header_for_csv += ",V"
+                events[end_date_time_now_for_csv][V] = 0
+                process_state_v = True
+
+            # Now process each state
+            for state_name in state_name_list:
+
+                selectString = f"SELECT ts, {state_name} FROM device_history_{trvCtlrDevId} WHERE ( ts >= '{start_time_postgres}' AND  {state_name} IS NOT NULL) ORDER BY ts"  # NOQA - YYYY-MM-DD HH:MM:SS
+                ps = database.prepare(selectString)
+                rows = ps()
+
+                # At this point the specific state entries have been retrieved for the selected period. They now need to be topped and tailed to be able to create nice graphs
+                # The following select finds the entry just prior to the start of the period to use as the first value
+
+                selectString2 = (f"SELECT ts, {state_name} FROM device_history_{trvCtlrDevId} WHERE ( ts < '{start_time_postgres}' AND {state_name} IS NOT NULL) ORDER BY ts DESC LIMIT 1")    # noqa [suppress no data sources help message] - YYYY-MM-DD HH:MM:SS
+                ps2 = database.prepare(selectString2)
+                droppedRows = ps2()
+                if len(droppedRows) == 0:  # No entries yet available for whole period, so exit  TODO: Double Check this??? 16-April-2022
+                    droppedRow = ["?", 0.0]
+                else:
+                    droppedRow = droppedRows[0]
+
+                def set_event(event_date_time):
+                    if event_date_time not in events:
+                        events[event_date_time] = dict()
+
+                state_name_code = state_names_translation[state_name]
+
+                # Store first entry.
+                dataValue = droppedRow[1]
+                events[start_time_for_csv][state_name_code] = dataValue
+                # Default last entry to equal first entry
+                events[end_date_time_now_for_csv][state_name_code] = dataValue
+
+                # Store entries for the state
+                for row in rows:
+                    # dt = row[0].strftime("%Y-%m-%d %H:%M:%S.%f")
+                    dt = row[0].strftime("%Y-%m-%d %H:%M:%S")  # e.g. YYYY-MM-DD HH:MM:SS
+                    set_event(dt)
+                    dataValue = row[1]
+                    events[dt][state_name_code] = dataValue
+                    events[end_date_time_now_for_csv][state_name_code] = dataValue
+
+            sorted_events = sorted(events.items())
 
             csvShortName = self.globals['trvc'][trvCtlrDevId]['csvShortName']
-
             if overrideCsvFilePrefix != '':
                 csvFilePrefix = overrideCsvFilePrefix
             else:
                 csvFilePrefix = self.globals['config']['csvPrefix']
-
             csvFileNamePathPrefix = f'{self.globals["config"]["csvPath"]}/{csvFilePrefix}'
-
-            csvFilename = f'{csvFileNamePathPrefix}_{csvShortName}_{stateName}.csv'
-
-            headerName = f'{indigo.devices[trvCtlrDevId].name} - {stateName}'
+            csvFilename = f'{csvFileNamePathPrefix}_{csvShortName}.csv'
 
             csvFileOut = open(csvFilename, 'w')
+            self.trvHandlerLogger.debug(f'CSV FILE NAME = \'{csvFilename}\', Time = \'{start_time_for_csv}\'')
 
-            self.trvHandlerLogger.debug(f'CSV FILE NAME = \'{csvFilename}\', Time = \'{checkTimeStr}\', State = \'{stateName}\'')
+            csvFileOut.write(f'{header_for_csv}\n')  # Write out header
 
-            headerName = headerName.replace(',', '_')  # Replace any commas with underscore to avoid CSV file problems
-            csvFileOut.write(f'Timestamp,{headerName}\n')  # Write out header
-
-            csvFileOut.write(f'{checkTimeStr},{droppedRow[1]}\n')
-
-            for row in rows:
-                timestamp = row[0].strftime("%Y-%m-%d %H:%M:%S.%f")
-                dataValue = row[1]
-                csvFileOut.write(f'{timestamp},{dataValue}\n')
-
-            # The following processing finds the last entry and repeats it for the current time to provide the latest entry
-            timestamp = dateTimeNow.strftime("%Y-%m-%d %H:%M:%S.999999")
-            if len(rows) > 0:
-                lastRow = rows[(len(rows) - 1)]
-                dataValue = lastRow[1]
-                csvFileOut.write(f'{timestamp},{dataValue}\n')
-            else:
-                csvFileOut.write(f'{timestamp},{droppedRow[1]}\n')
+            line = ""
+            for key, value in sorted_events:
+                line = f"{key},"
+                if process_state_cs:
+                    if CS in events[key]:
+                        line += f"{events[key][CS]}"
+                    line += ","
+                if process_state_ts:
+                    if TS in events[key]:
+                        line += f"{events[key][TS]}"
+                    line += ","
+                if process_state_tt:
+                    if TT in events[key]:
+                        line += f"{events[key][TT]}"
+                    line += ","
+                if process_state_rd:
+                    if RD in events[key]:
+                        line += f"{events[key][RD]}"
+                    line += ","
+                if process_state_rs:
+                    if RS in events[key]:
+                        line += f"{events[key][RS]}"
+                    line += ","
+                if process_state_rt:
+                    if RT in events[key]:
+                        line += f"{events[key][RT]}"
+                    line += ","
+                if process_state_v:
+                    if V in events[key]:
+                        line += f"{events[key][V]}"
+                csvFileOut.write(f'{line}\n')
 
             csvFileOut.close()
+
+            # Now create the graph
+            graph_template_filename = indigo.devices[trvCtlrDevId].ownerProps.get("datagraphTemplateFilename", "")
+            graph_template_full_path = f"{self.globals['config']['datagraphGraphTemplatesPath']}/{graph_template_filename}"
+
+            graph_output_image_filename = indigo.devices[trvCtlrDevId].ownerProps.get("datagraphOutputImageFilename", "")
+            graph_output_image_full_path = f"{self.globals['config']['datagraphImagesPath']}/{graph_output_image_filename}"
+
+            graph_title = indigo.devices[trvCtlrDevId].ownerProps.get("datagraphChartTitle", "NO TITLE")
+            graph_full_title = f"Title={graph_title}"
+
+            result = subprocess.run([self.globals['config']['datagraphCliPath'], csvFilename, "-script", graph_template_full_path, "-output", graph_output_image_full_path,
+                                     "-v", graph_full_title], capture_output=True, text=True)
+
+            print("stdout:", result.stdout)
+            print("stderr:", result.stderr)
+
+            if result.stderr != "":
+                self.trvHandlerLogger.error(f'DataGraph Error: {result.stderr}')
+            elif result.stdout != "":
+                self.trvHandlerLogger.warning(f'DataGraph Warning: {result.stdout}')
 
         except Exception as exception_error:
             self.exception_handler(exception_error, True)  # Log error and display failing statement

@@ -368,6 +368,9 @@ class Plugin(indigo.PluginBase):
             self.globals['config']['csvPostgresqlEnabled'] = valuesDict.get("csvPostgresqlEnabled", False)
             self.globals['config']['postgresqlUser'] = valuesDict.get("postgresqlUser", '')
             self.globals['config']['postgresqlPassword'] = valuesDict.get("postgresqlPassword", '')
+            self.globals['config']['datagraphCliPath'] = valuesDict.get("datagraphCliPath", '')
+            self.globals['config']['datagraphGraphTemplatesPath'] = valuesDict.get("datagraphGraphTemplatesPath", '')
+            self.globals['config']['datagraphImagesPath'] = valuesDict.get("datagraphImagesPath", '')
             self.globals['config']['csvPath'] = valuesDict.get("csvPath", '')
             self.globals['config']['csvPrefix'] = valuesDict.get("csvPrefix", 'TRV_Plugin')
 
@@ -421,6 +424,7 @@ class Plugin(indigo.PluginBase):
             self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['trvController'] = dict()
             self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['trv'] = dict()
             self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['remote'] = dict()
+            self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['radiator'] = dict()
 
             self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['trvController']['updateSecondsSinceMidnight'] = 0
             self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['trvController']['updatesInLastSecond'] = 0
@@ -431,6 +435,9 @@ class Plugin(indigo.PluginBase):
             self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['remote']['updateSecondsSinceMidnight'] = 0
             self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['remote']['updatesInLastSecond'] = 0
             self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['remote']['updatesInLastSecondMaximum'] = 0
+            self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['radiator']['updateSecondsSinceMidnight'] = 0
+            self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['radiator']['updatesInLastSecond'] = 0
+            self.globals['trvc'][trvCtlrDevId]['raceConditionDetector']['radiator']['updatesInLastSecondMaximum'] = 0
 
             if (trvcDev.pluginProps.get('version', '0.0')) != self.globals['pluginInfo']['pluginVersion']:
                 pluginProps = trvcDev.pluginProps
@@ -446,6 +453,8 @@ class Plugin(indigo.PluginBase):
             self.globals['trvc'][trvCtlrDevId]['lastSuccessfulCommTrv'] = 'N/A'
             self.globals['trvc'][trvCtlrDevId]['lastSuccessfulCommRemote'] = 'N/A'
             self.globals['trvc'][trvCtlrDevId]['eventReceivedCountRemote'] = 0
+            self.globals['trvc'][trvCtlrDevId]['lastSuccessfulCommRadiator'] = 'N/A'
+            self.globals['trvc'][trvCtlrDevId]['eventReceivedCountRadiator'] = 0
 
             self.globals['trvc'][trvCtlrDevId]['hideTempBroadcast'] = bool(trvcDev.pluginProps.get('hideTempBroadcast', False))  # Hide Temperature Broadcast in Event Log Flag
 
@@ -460,6 +469,7 @@ class Plugin(indigo.PluginBase):
             self.globals['trvc'][trvCtlrDevId]['updateCsvFile'] = False
             self.globals['trvc'][trvCtlrDevId]['updateAllCsvFiles'] = False
             self.globals['trvc'][trvCtlrDevId]['updateAllCsvFilesViaPostgreSQL'] = False
+            self.globals['trvc'][trvCtlrDevId]['updateDatagraphCsvFileViaPostgreSQL'] = False
 
             self.globals['trvc'][trvCtlrDevId]['csvCreationMethod'] = int(trvcDev.pluginProps.get('csvCreationMethod', 0))
             if self.globals['config']['csvStandardEnabled']:
@@ -468,8 +478,11 @@ class Plugin(indigo.PluginBase):
                     if self.globals['trvc'][trvCtlrDevId]['csvStandardMode'] == 2:
                         self.globals['trvc'][trvCtlrDevId]['updateAllCsvFiles'] = True
             if self.globals['config']['csvPostgresqlEnabled']:
-                if self.globals['trvc'][trvCtlrDevId]['csvCreationMethod'] == 2:
-                    self.globals['trvc'][trvCtlrDevId]['updateAllCsvFilesViaPostgreSQL'] = True
+                if self.globals['trvc'][trvCtlrDevId]['csvCreationMethod'] == 2 or self.globals['trvc'][trvCtlrDevId]['csvCreationMethod'] == 3:
+                    if self.globals['trvc'][trvCtlrDevId]['csvCreationMethod'] == 2:
+                        self.globals['trvc'][trvCtlrDevId]['updateAllCsvFilesViaPostgreSQL'] = True
+                    else:
+                        self.globals['trvc'][trvCtlrDevId]['updateDatagraphCsvFileViaPostgreSQL'] = True
                     self.globals['trvc'][trvCtlrDevId]['postgresqlUser'] = self.globals['config']['postgresqlUser']
                     self.globals['trvc'][trvCtlrDevId]['postgresqlPassword'] = self.globals['config']['postgresqlPassword']
             self.globals['trvc'][trvCtlrDevId]['csvShortName'] = trvcDev.pluginProps.get('csvShortName', '')
@@ -535,6 +548,12 @@ class Plugin(indigo.PluginBase):
             self.globals['schedules'][trvCtlrDevId]['default'] = dict()  # setup from device configuration
             self.globals['schedules'][trvCtlrDevId]['running'] = dict()  # based on 'default' and potentially modified by change schedule actions
             self.globals['schedules'][trvCtlrDevId]['dynamic'] = dict()  # based on 'running' and potentially modified in response to Boost / Advance / Extend actions
+
+            self.globals['trvc'][trvCtlrDevId]['radiatorDevId'] = 0  # Assume no radiator temperature monitoring
+            self.globals['trvc'][trvCtlrDevId]['radiatorMonitoringEnabled'] = bool(trvcDev.pluginProps.get('radiatorMonitoringEnabled', False))
+            if self.globals['trvc'][trvCtlrDevId]['radiatorMonitoringEnabled']:
+                self.globals['trvc'][trvCtlrDevId]['radiatorDevId'] = int(trvcDev.pluginProps.get('radiatorDevId', 0))  # ID of Radiator Temperature Sensor device
+
 
             self.globals['trvc'][trvCtlrDevId]['remoteDevId'] = 0  # Assume no remote thermostat control
             self.globals['trvc'][trvCtlrDevId]['remoteThermostatControlEnabled'] = bool(trvcDev.pluginProps.get('remoteThermostatControlEnabled', False))
@@ -604,6 +623,7 @@ class Plugin(indigo.PluginBase):
                 if 'batteryLevel' in indigo.devices[self.globals['trvc'][trvCtlrDevId]['trvDevId']].states:
                     self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv'] = indigo.devices[self.globals['trvc'][trvCtlrDevId]['trvDevId']].batteryLevel
             self.globals['trvc'][trvCtlrDevId]['batteryLevel'] = self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv']
+
             self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'] = 0
             if self.globals['trvc'][trvCtlrDevId]['remoteDevId'] != 0:
                 if 'batteryLevel' in indigo.devices[self.globals['trvc'][trvCtlrDevId]['remoteDevId']].states:
@@ -611,6 +631,14 @@ class Plugin(indigo.PluginBase):
                     if 0 < self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote'] < \
                             self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv']:
                         self.globals['trvc'][trvCtlrDevId]['batteryLevel'] = self.globals['trvc'][trvCtlrDevId]['batteryLevelRemote']
+
+            self.globals['trvc'][trvCtlrDevId]['batteryLevelRadiator'] = 0
+            if self.globals['trvc'][trvCtlrDevId]['radiatorDevId'] != 0:
+                if 'batteryLevel' in indigo.devices[self.globals['trvc'][trvCtlrDevId]['radiatorDevId']].states:
+                    self.globals['trvc'][trvCtlrDevId]['batteryLevelRadiator'] = indigo.devices[self.globals['trvc'][trvCtlrDevId]['radiatorDevId']].batteryLevel
+                    if 0 < self.globals['trvc'][trvCtlrDevId]['batteryLevelRadiator'] < \
+                            self.globals['trvc'][trvCtlrDevId]['batteryLevelTrv']:
+                        self.globals['trvc'][trvCtlrDevId]['batteryLevel'] = self.globals['trvc'][trvCtlrDevId]['batteryLevelRadiator']
 
             self.globals['trvc'][trvCtlrDevId]['setpointHeatOnDefault'] = float(trvcDev.pluginProps['setpointHeatOnDefault'])
             self.globals['trvc'][trvCtlrDevId]['setpointHeatMinimum'] = float(trvcDev.pluginProps['setpointHeatMinimum'])
@@ -780,6 +808,28 @@ class Plugin(indigo.PluginBase):
                 self.globals['trvc'][trvCtlrDevId]['temperatureTrv'] = float(indigo.devices[int(self.globals['trvc'][trvCtlrDevId]['trvDevId'])].temperatures[0])
             else:
                 self.globals['trvc'][trvCtlrDevId]['temperatureTrv'] = 0.0
+
+            self.globals['trvc'][trvCtlrDevId]['temperatureRadiator'] = float(0.0)
+            if self.globals['trvc'][trvCtlrDevId]['radiatorDevId'] != 0:
+                try:
+                    self.globals['trvc'][trvCtlrDevId]['temperatureRadiator'] = float(
+                        indigo.devices[int(self.globals['trvc'][trvCtlrDevId]['radiatorDevId'])].temperatures[0])  # e.g. Radiator Thermostat (HRT4-ZW)
+                except AttributeError:
+                    try:
+                        self.globals['trvc'][trvCtlrDevId]['temperatureRadiator'] = float(
+                            indigo.devices[int(self.globals['trvc'][trvCtlrDevId]['radiatorDevId'])].states['sensorValue'])  # e.g. Aeon 4 in 1 / Fibaro FGMS-001
+                    except (AttributeError, KeyError):
+                        try:
+                            self.globals['trvc'][trvCtlrDevId]['temperatureRadiator'] = float(
+                                indigo.devices[int(self.globals['trvc'][trvCtlrDevId]['radiatorDevId'])].states['temperature'])  # e.g. Oregon Scientific Temp Sensor
+                        except (AttributeError, KeyError):
+                            try:
+                                self.globals['trvc'][trvCtlrDevId]['temperatureRadiator'] = float(
+                                    indigo.devices[int(self.globals['trvc'][trvCtlrDevId]['radiatorDevId'])].states['Temperature'])  # e.g. Netatmo
+                            except (AttributeError, KeyError):
+                                indigo.server.error(
+                                    f'\'{indigo.devices[self.globals["trvc"][trvCtlrDevId]["radiatorDevId"]].name}\' is an unknown Radiator Temperature Sensor type - Radiator Temperature Sensor support disabled for TRV \'{trvcDev.name}\'')
+                                self.globals['trvc'][trvCtlrDevId]['radiatorDevId'] = 0  # Disable Radiator Temperature Sensor Support
 
             self.globals['trvc'][trvCtlrDevId]['temperatureRemote'] = float(0.0)
             self.globals['trvc'][trvCtlrDevId]['temperatureRemotePreOffset'] = float(0.0)
@@ -1075,11 +1125,11 @@ class Plugin(indigo.PluginBase):
                 self.globals['devicesToTrvControllerTable'][self.globals['trvc'][trvCtlrDevId]['remoteDevId']]['type'] = REMOTE
                 self.globals['devicesToTrvControllerTable'][self.globals['trvc'][trvCtlrDevId]['remoteDevId']]['trvControllerId'] = int(trvCtlrDevId)
 
-            # if self.globals['trvc'][trvCtlrDevId]['valveDevId'] != 0:
-            #     if int(self.globals['trvc'][trvCtlrDevId]['remoteDevId']) not in self.globals['devicesToTrvControllerTable'].keys():
-            #         self.globals['devicesToTrvControllerTable'][self.globals['trvc'][trvCtlrDevId]['remoteDevId']] = dict()
-            #     self.globals['devicesToTrvControllerTable'][self.globals['trvc'][trvCtlrDevId]['remoteDevId']]['type'] = REMOTE
-            #     self.globals['devicesToTrvControllerTable'][self.globals['trvc'][trvCtlrDevId]['remoteDevId']]['trvControllerId'] = int(trvCtlrDevId)
+            if self.globals['trvc'][trvCtlrDevId]['radiatorDevId'] != 0:
+                if int(self.globals['trvc'][trvCtlrDevId]['radiatorDevId']) not in self.globals['devicesToTrvControllerTable'].keys():
+                    self.globals['devicesToTrvControllerTable'][self.globals['trvc'][trvCtlrDevId]['radiatorDevId']] = dict()
+                self.globals['devicesToTrvControllerTable'][self.globals['trvc'][trvCtlrDevId]['radiatorDevId']]['type'] = RADIATOR
+                self.globals['devicesToTrvControllerTable'][self.globals['trvc'][trvCtlrDevId]['radiatorDevId']]['trvControllerId'] = int(trvCtlrDevId)
 
             try:
                 heatingId = int(self.globals['trvc'][trvCtlrDevId]['heatingId'])
@@ -1228,7 +1278,7 @@ class Plugin(indigo.PluginBase):
                         device_updated_report = (f"{device_updated_report}{device_updated_prefix}{itemToReport}\n")
                         self.logger.debug(device_updated_report)
 
-            elif int(newDev.id) in self.globals['devicesToTrvControllerTable'].keys():  # Check if a TRV device or Remote Thermostat already stored in table
+            elif int(newDev.id) in self.globals['devicesToTrvControllerTable'].keys():  # Check if a TRV device, Remote Thermostat or Radiator Temperature sensor already stored in table
 
                 deviceUpdatedLog = u'\n\n======================================================================================================================================================\n=='
                 deviceUpdatedLog = deviceUpdatedLog + u'\n==  Method: \'deviceUpdated\''
@@ -1487,6 +1537,100 @@ class Plugin(indigo.PluginBase):
 
                             self.globals['trvc'][trvCtlrDevId]['lastSuccessfulCommRemote'] = newDev.lastSuccessfulComm
 
+                    elif self.globals['devicesToTrvControllerTable'][newDev.id]['type'] == RADIATOR:
+
+                        race_condition_result = check_for_race_condition("radiator", "RADIATOR", "Radiator Temperature Sensor device managed by TRV Controller")
+                        if race_condition_result:
+                            return  # Note that the 'finally:' statement at the end of this deviceUpdated method will return the correct values to Indigo
+
+                        if 'batteryLevel' in newDev.states:
+                            if (origDev.batteryLevel != newDev.batteryLevel) or (self.globals['trvc'][trvCtlrDevId]['batteryLevelRadiator'] != newDev.batteryLevel):
+                                self.globals['trvc'][trvCtlrDevId]['batteryLevelRadiator'] = newDev.batteryLevel
+                                updateRequested = True
+                                updateList[UPDATE_RADIATOR_BATTERY_LEVEL] = newDev.batteryLevel
+                                updateLogItems[UPDATE_RADIATOR_BATTERY_LEVEL] = (
+                                    f'RRadiator Battery Level updated from {origDev.batteryLevel} to {newDev.batteryLevel} [Internal store was = \'{self.globals["trvc"][trvCtlrDevId]["batteryLevelRadiator"]}\']')
+
+                        if trvControllerDev.states['controllerMode'] != self.globals['trvc'][trvCtlrDevId]['controllerMode']:
+                            updateRequested = True
+                            updateList[UPDATE_CONTROLLER_MODE] = self.globals['trvc'][trvCtlrDevId]['controllerMode']
+                            updateLogItems[UPDATE_CONTROLLER_MODE] = (
+                                f'Controller Mode updated from {CONTROLLER_MODE_TRANSLATION[trvControllerDev.states["controllerMode"]]} to {CONTROLLER_MODE_TRANSLATION[self.globals["trvc"][trvCtlrDevId]["controllerMode"]]}')
+                        try:
+                            origTemp = float(origDev.temperatures[0])
+                            newTemp = float(newDev.temperatures[0])  # Radiator
+                        except AttributeError:
+                            try:
+                                origTemp = float(origDev.states['sensorValue'])
+                                newTemp = float(newDev.states['sensorValue'])  # e.g. Aeon 4 in 1
+                            except (AttributeError, KeyError):
+                                try:
+                                    origTemp = float(origDev.states['temperatureInput1'])
+                                    newTemp = float(newDev.states['temperatureInput1'])  # e.g. Secure SRT321 / HRT4-ZW
+                                except (AttributeError, KeyError):
+                                    try:
+                                        origTemp = float(origDev.states['temperature'])
+                                        newTemp = float(newDev.states['temperature'])  # e.g. Oregon Scientific Temp Sensor
+                                    except (AttributeError, KeyError):
+                                        try:
+                                            origTemp = float(origDev.states['Temperature'])
+                                            newTemp = float(newDev.states['Temperature'])  # e.g. Netatmo
+                                        except (AttributeError, KeyError):
+                                            try:
+                                                origTemp = float(origDev.states['sensorValue'])
+                                                newTemp = float(newDev.states['sensorValue'])  # e.g. HeatIT TF021
+                                            except (AttributeError, KeyError):
+                                                origTemp = 10.0  #
+                                                newTemp = 10.0
+                                                self.logger.error(f'\'{newDev.name}\' is an unknown Radiator Temperature Sensor type - radiator temperature support disabled for \'{trvControllerDev.name}\'')
+                                                del self.globals['devicesToTrvControllerTable'][self.globals['trvc'][trvCtlrDevId]['radiatorDevId']]  # Disable Remote Support
+                                                self.globals['trvc'][trvCtlrDevId]['radiatorDevId'] = 0
+
+                        if self.globals['trvc'][trvCtlrDevId]['radiatorDevId'] != 0:
+
+                            # origTemp should already have had the offset applied - just need to add it to newTemp to ensure comparison is valid
+
+                            if origTemp != newTemp:
+                                updateRequested = True
+                                updateList[UPDATE_RADIATOR_TEMPERATURE] = newTemp  # Send through the original (non-offset) temperature
+                                updateLogItems[UPDATE_RADIATOR_TEMPERATURE] = (
+                                    f'Temperature updated from {origTemp} to {newTemp} [Internal store = \'{self.globals["trvc"][trvCtlrDevId]["temperatureRadiator"]}\']')
+                                if self.globals['trvc'][trvCtlrDevId]['updateCsvFile']:
+                                    if self.globals['trvc'][trvCtlrDevId]['updateAllCsvFiles']:
+                                        self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_LOW, 0, CMD_UPDATE_ALL_CSV_FILES, trvCtlrDevId, None])
+                                    else:
+                                        self.globals['queues']['trvHandler'].put(
+                                            [QUEUE_PRIORITY_LOW, 0, CMD_UPDATE_CSV_FILE, trvCtlrDevId, ['temperatureradiator', newTemp]])  # The offset temperature for the CSV file
+
+                            # if newDev.protocol == indigo.kProtocol.ZWave:
+                            #     # Check if Z-Wave Event has been received
+                            #     if self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountRemote'] > self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountPreviousRemote']:
+                            #         self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountPreviousRemote'] = self.globals['trvc'][trvCtlrDevId]['zwaveReceivedCountRemote']
+                            #         updateRequested = True
+                            #         updateList[UPDATE_ZWAVE_EVENT_RECEIVED_REMOTE] = self.globals['trvc'][trvCtlrDevId]['zwaveEventReceivedDateTimeRemote']
+                            #         updateLogItems[UPDATE_ZWAVE_EVENT_RECEIVED_REMOTE] = f'Remote Thermostat Z-Wave event received. Time updated to \'{self.globals["trvc"][trvCtlrDevId]["zwaveEventReceivedDateTimeRemote"]}\'. Received count now totals: {self.globals["trvc"][trvCtlrDevId]["zwaveReceivedCountPreviousRemote"]}'
+                            #
+                            #     # Check if Z-Wave Event has been sent
+                            #     if self.globals['trvc'][trvCtlrDevId]['zwaveSentCountRemote'] > self.globals['trvc'][trvCtlrDevId]['zwaveSentCountPreviousRemote']:
+                            #         self.globals['trvc'][trvCtlrDevId]['zwaveSentCountPreviousRemote'] = self.globals['trvc'][trvCtlrDevId]['zwaveSentCountRemote']
+                            #         updateRequested = True
+                            #         updateList[UPDATE_ZWAVE_EVENT_SENT_REMOTE] = self.globals['trvc'][trvCtlrDevId]['zwaveEventSentDateTimeRemote']
+                            #         updateLogItems[UPDATE_ZWAVE_EVENT_SENT_REMOTE] = f'Remote Thermostat Z-Wave event sent. Time updated to \'{self.globals["trvc"][trvCtlrDevId]["zwaveEventSentDateTimeRemote"]}\'. Sent count now totals: {self.globals["trvc"][trvCtlrDevId]["zwaveSentCountRemote"]}'
+                            # else:
+                            #     if newDev.lastSuccessfulComm != self.globals['trvc'][trvCtlrDevId]['lastSuccessfulCommRemote']:
+                            #         self.globals['trvc'][trvCtlrDevId]['eventReceivedCountRemote'] += 1
+                            #         updateRequested = True
+                            #         updateList[UPDATE_EVENT_RECEIVED_REMOTE] = f'{newDev.lastSuccessfulComm}'
+                            #         updateLogItems[UPDATE_EVENT_RECEIVED_REMOTE] = f'Remote Thermostat event received. Time updated to \'{newDev.lastSuccessfulComm}\'. Received count now totals: {self.globals["trvc"][trvCtlrDevId]["eventReceivedCountRemote"]}'
+
+                            if newDev.lastSuccessfulComm != self.globals['trvc'][trvCtlrDevId]['lastSuccessfulCommRadiator']:
+                                self.globals['trvc'][trvCtlrDevId]['eventReceivedCountRadiator'] += 1
+                                updateRequested = True
+                                updateList[UPDATE_EVENT_RECEIVED_RADIATOR] = f'{newDev.lastSuccessfulComm}'
+                                updateLogItems[UPDATE_EVENT_RECEIVED_RADIATOR] = f'Radiator Temperature Sensor event received. Time updated to \'{newDev.lastSuccessfulComm}\'. Received count now totals: {self.globals["trvc"][trvCtlrDevId]["eventReceivedCountRadiator"]}'
+
+                            self.globals['trvc'][trvCtlrDevId]['lastSuccessfulCommRadiator'] = newDev.lastSuccessfulComm
+
                     if updateRequested:
 
                         deviceUpdatedLog = deviceUpdatedLog + f'\n==  List of states to be queued for update by TRVHANDLER:'
@@ -1495,14 +1639,17 @@ class Plugin(indigo.PluginBase):
                             updateValue = itemToUpdate[1]
                             deviceUpdatedLog = deviceUpdatedLog + f'\n==    > Description = {UPDATE_TRANSLATION[updateKey]}, Value = {updateValue}'
 
+                        queuedCommand = None
                         if self.globals['devicesToTrvControllerTable'][newDev.id]['type'] == TRV:
                             queuedCommand = CMD_UPDATE_TRV_STATES
                         elif self.globals['devicesToTrvControllerTable'][newDev.id]['type'] == VALVE:
                             queuedCommand = CMD_UPDATE_VALVE_STATES
-                        else:
-                            # Must be Remote
+                        elif self.globals['devicesToTrvControllerTable'][newDev.id]['type'] == REMOTE:
                             queuedCommand = CMD_UPDATE_REMOTE_STATES
-                        self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, self.globals['deviceUpdatedSequenceCount'], queuedCommand, trvCtlrDevId, [updateList, ]])
+                        elif self.globals['devicesToTrvControllerTable'][newDev.id]['type'] == RADIATOR:
+                            queuedCommand = CMD_UPDATE_RADIATOR_STATES
+                        if queuedCommand is not None:
+                            self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_STATUS_MEDIUM, self.globals['deviceUpdatedSequenceCount'], queuedCommand, trvCtlrDevId, [updateList, ]])
 
                         deviceUpdatedLog = deviceUpdatedLog + f'\n==  Description of updates that will be performed by TRVHANDLER:'
                         for itemToUpdate in updateLogItems.items():
@@ -2010,7 +2157,7 @@ class Plugin(indigo.PluginBase):
 
                     if type(remoteDev) == indigo.ThermostatDevice or type(remoteDev) == indigo.SensorDevice:
                         num_temperature_inputs = int(remoteDev.ownerProps.get("NumTemperatureInputs", "0"))
-                        if num_temperature_inputs > 0:
+                        if num_temperature_inputs > 0 or remoteDev.subType == indigo.kSensorDeviceSubType.Temperature:
                             valid = True
                 else:
                     remoteDevId = 0
@@ -2978,6 +3125,42 @@ class Plugin(indigo.PluginBase):
         except Exception as exception_error:
             self.exception_handler(exception_error, True)  # Log error and display failing statement
 
+    def processInvokeDatagraphUsingPostgresqlToCsv(self, pluginAction, trvCtlrDev):
+
+        trvCtlrDevId = trvCtlrDev.id
+
+        try:
+            overrideDefaultRetentionHours = pluginAction.props.get('overrideDefaultRetentionHours', '')
+            if overrideDefaultRetentionHours == '':
+                overrideDefaultRetentionHours = 0
+            else:
+                overrideDefaultRetentionHours = int(overrideDefaultRetentionHours)
+            overrideCsvFilePrefix = pluginAction.props.get('overrideCsvFilePrefix', '')
+
+            if self.globals['config']['datagraphCliPath'] == "":
+                self.logger.error(f'Request to update Datagraph CSV File Via PostgreSQL ignored as DataGraph command line utility path not specified in plugin config.')
+                return
+
+            if self.globals['config']['datagraphGraphTemplatesPath'] == "":
+                self.logger.error(f'Request to update Datagraph CSV File Via PostgreSQL ignored as DataGraph graph templates folder path not specified in plugin config.')
+                return
+
+            if self.globals['config']['datagraphImagesPath'] == "":
+                self.logger.error(f'Request to update Datagraph CSV File Via PostgreSQL ignored as DataGraph output images folder path not specified in plugin config.')
+                return
+
+            trvCtlrDevId = trvCtlrDev.id
+            if self.globals['config']['csvPostgresqlEnabled']:
+                if self.globals['trvc'][trvCtlrDevId]['updateDatagraphCsvFileViaPostgreSQL']:
+                    self.globals['queues']['trvHandler'].put([QUEUE_PRIORITY_LOW, 0, CMD_INVOKE_DATAGRAPH_USING_POSTGRESQL_TO_CSV, trvCtlrDevId, [overrideDefaultRetentionHours, overrideCsvFilePrefix]])
+                else:
+                    self.logger.error(f'Request to update Datagraph CSV File Via PostgreSQL ignored as option \'Enable PostgreSQL CSV\' not set for \'{trvCtlrDev.name}\' in its device settings.')
+            else:
+                self.logger.error(f'Request to update Datagraph CSV File Via PostgreSQL ignored for \'{trvCtlrDev.name}\' as option \'Enable PostgreSQL CSV\' not enabled in the plugin config.')
+
+        except Exception as exception_error:
+            self.exception_handler(exception_error, True)  # Log error and display failing statement
+
     def processUpdateSchedule(self, pluginAction, dev):
 
         self.logger.debug(f' Thermostat \'{dev.name}\', Action received: \'{pluginAction.description}\'')
@@ -3136,7 +3319,7 @@ class Plugin(indigo.PluginBase):
 
                 if type(dev) == indigo.ThermostatDevice or type(dev) == indigo.SensorDevice:
                     num_temperature_inputs = int(dev.ownerProps.get("NumTemperatureInputs", "0"))
-                    if num_temperature_inputs > 0:
+                    if num_temperature_inputs > 0 or dev.subType == indigo.kSensorDeviceSubType.Temperature:
                         array.append((dev.id, dev.name))
 
         return sorted(array, key=lambda dev_name: dev_name[1].lower())  # sort by device name
@@ -3148,7 +3331,7 @@ class Plugin(indigo.PluginBase):
             if dev.deviceTypeId != 'trvController':
                 if type(dev) == indigo.ThermostatDevice or type(dev) == indigo.SensorDevice:
                     num_temperature_inputs = int(dev.ownerProps.get("NumTemperatureInputs", "0"))
-                    if num_temperature_inputs > 0:
+                    if num_temperature_inputs > 0 or dev.subType == indigo.kSensorDeviceSubType.Temperature:
                         array.append((dev.id, dev.name))
 
         return sorted(array, key=lambda dev_name: dev_name[1].lower())  # sort by device name
@@ -3335,6 +3518,8 @@ class Plugin(indigo.PluginBase):
             self.logger.warning(
                 f'Z-Wave wakeup missed for {deviceType} \'{indigo.devices[devId].name}\', controlled by \'{indigo.devices[trvCtlrDevId].name}\'. Last Z-wave command received: {lastWakeupTime}')
 
+            if nextWakeupMissedSeconds < 300:  # If less than 5 minutes
+                nextWakeupMissedSeconds = 300    # default to 5 minutes
             self.globals['timers']['zwaveWakeupCheck'][devId] = threading.Timer(float(nextWakeupMissedSeconds), self.zwaveWakeupMissedTriggered, [trvCtlrDevId, devType, devId])
             self.globals['timers']['zwaveWakeupCheck'][devId].daemon = True
             self.globals['timers']['zwaveWakeupCheck'][devId].start()

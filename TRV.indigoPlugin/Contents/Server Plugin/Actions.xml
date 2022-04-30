@@ -178,6 +178,24 @@
             </Field>
         </ConfigUI>
     </Action>
+    <Action id="processInvokeDatagraphUsingPostgresqlToCsv" deviceFilter="self.trvController" uiPath="DeviceActions">
+        <Name>Invoke DataGraph using PostgreSQL to CSV</Name>
+        <CallbackMethod>processInvokeDatagraphUsingPostgresqlToCsv</CallbackMethod>
+        <ConfigUI>
+            <Field id="overrideDefaultRetentionHours" type="textfield" defaultValue="">
+                <Label>Override Default Retention Hours:</Label>
+            </Field>
+            <Field id="help-1" type="label" alignWithControl="true">
+                <Label>^ Leave blank to use default configured in device settings else specify number of hours as an integer e.g. 12</Label>
+            </Field>
+            <Field id="overrideCsvFilePrefix" type="textfield" defaultValue="">
+                <Label>Override Default CSV File Prefix:</Label>
+            </Field>
+            <Field id="help-2" type="label" alignWithControl="true">
+                <Label>^ Leave blank to use default configured in plugin config else specify prefix that will be used with this Action e.g. 'TRVDG' [no Quotes]</Label>
+            </Field>
+        </ConfigUI>
+    </Action>
     <Action id="processUpdateSchedule" deviceFilter="self.trvController" uiPath="DeviceActions">
         <Name>Update Schedule</Name>
         <CallbackMethod>processUpdateSchedule</CallbackMethod>

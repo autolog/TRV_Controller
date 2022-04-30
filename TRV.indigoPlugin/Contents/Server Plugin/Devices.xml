@@ -81,6 +81,7 @@
                     <Option value="0">None</Option>
                     <Option value="1">Standard [On State Change]</Option>
                     <Option value="2">PostgreSQL [On demand]</Option>
+                    <Option value="3">PostgreSQL [DataGraph On demand]</Option>
                 </List>
             </Field>
 
@@ -92,10 +93,22 @@
                 </List>
             </Field>
 
-            <Field id="csvShortName" type="textfield" defaultValue="" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+            <Field id="datagraphTemplateFilename" type="textfield" defaultValue="" visibleBindingId="csvCreationMethod" visibleBindingValue="3" alwaysUseInDialogHeightCalc="true">
+                <Label>DataGraph Template Filename:</Label>
+            </Field>
+            <Field id="datagraphOutputImageFilename" type="textfield" defaultValue="" visibleBindingId="csvCreationMethod" visibleBindingValue="3" alwaysUseInDialogHeightCalc="true">
+                <Label>DataGraph Output Image Filename:</Label>
+            </Field>
+            <Field id="datagraphChartTitle" type="textfield" defaultValue="" visibleBindingId="csvCreationMethod" visibleBindingValue="3" alwaysUseInDialogHeightCalc="true">
+                <Label>DataGraph Chart Title:</Label>
+            </Field>
+
+
+
+            <Field id="csvShortName" type="textfield" defaultValue="" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2,3" alwaysUseInDialogHeightCalc="true">
                 <Label>Short Name:</Label>
             </Field>
-            <Field id="help-5" type="label" alignWithControl="true" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
+            <Field id="help-5" type="label" alignWithControl="true" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2,3" alwaysUseInDialogHeightCalc="true">
                 <Label>^ Specify a short name (say, max 10 characters) to be used to uniquely identify this device within a CSV file name</Label>
             </Field>
             <Field id="csvRetentionPeriodHours" type="textfield" defaultValue="24" visibleBindingId="csvCreationMethod" visibleBindingValue="1,2" alwaysUseInDialogHeightCalc="true">
@@ -1183,6 +1196,12 @@
                 <ValueType>Float</ValueType>
                 <TriggerLabel>Remote Temperature Changed</TriggerLabel>
                 <ControlPageLabel>Remote Temperature</ControlPageLabel>
+            </State>
+
+            <State id="temperatureRadiator">
+                <ValueType>Float</ValueType>
+                <TriggerLabel>Radiator Temperature Changed</TriggerLabel>
+                <ControlPageLabel>Radiator Temperature</ControlPageLabel>
             </State>
 
             <State id="temperatureUi">

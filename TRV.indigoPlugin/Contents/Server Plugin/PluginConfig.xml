@@ -68,6 +68,19 @@
     <Field id="postgresqlPassword" type="textfield" defaultValue="" secure="true" alwaysUseInDialogHeightCalc="true" visibleBindingId="csvPostgresqlEnabled" visibleBindingValue="true">
         <Label>PostgreSQL Password:</Label>
     </Field>
+    <Field type="textfield" id="datagraphCliPath" default="" alwaysUseInDialogHeightCalc="true" visibleBindingId="csvPostgresqlEnabled" visibleBindingValue="true">
+        <Label>DataGraph CLI:</Label>
+        <Description>Path to command line utility.</Description>
+    </Field>
+    <Field type="textfield" id="datagraphGraphTemplatesPath" default="" alwaysUseInDialogHeightCalc="true" visibleBindingId="csvPostgresqlEnabled" visibleBindingValue="true">
+        <Label>DataGraph Graphs Template Folder:</Label>
+        <Description>Path to Graphs Template Folder.</Description>
+    </Field>
+    <Field type="textfield" id="datagraphImagesPath" default="" alwaysUseInDialogHeightCalc="true" visibleBindingId="csvPostgresqlEnabled" visibleBindingValue="true">
+        <Label>DataGraph Output Images Folder:</Label>
+        <Description>Path to Output Images Folder.</Description>
+    </Field>
+
     <Field id="csvPath" type="textfield" defaultValue="">
         <Label>Path to CSV folder:</Label>
     </Field>
